@@ -1,19 +1,62 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8">
-    <title>Hello World!</title>
-  </head>
-  <body>
-    <h1>Hello World!</h1>
-    <!-- All of the Node.js APIs are available in this renderer process. -->
-    We are using Node.js <script>document.write(process.versions.node)</script>,
-    Chromium <script>document.write(process.versions.chrome)</script>,
-    and Electron <script>document.write(process.versions.electron)</script>.
 
-    <script>
-      // You can also require other files to run in this process
-      require('./renderer.js')
-    </script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <title>Hello World!</title>
+  <link rel="stylesheet" type="text/css" href="./assets/css/site.css">
+  <link href="https://fonts.googleapis.com/css?family=Montserrat" rel="stylesheet">
+</head>
+
+<body onresize="resizeCanvas()">
+  <div class="container">
+
+    <header>
+      <strong><span>Dungeon</span>Map</strong>
+      <nav>
+        <ul>
+          <li onclick="minimizeWindow()"><img src="./assets/img/btn-min.svg"></li>
+          <li onclick="closeWindow()"><img src="./assets/img/btn-close.svg"></li>
+        </ul>
+      </nav>
+    </header>
+    <div id="btn-bar">
+    </div>
+    <main>
+      <canvas id="canvas" width="400" height="300">
+        This text is displayed if your browser does not support HTML5 Canvas.
+      </canvas>
+
+    </main>
+  </div>
+
+  <script>
+    // You can also require other files to run in this process
+    require('./renderer.js');
+    const electron = require('electron');
+    const { ipcRenderer } = electron;
+    var shapes = require('./assets/js/shapes.js');
+
+    function resizeCanvas() {
+      /// now use this as width and height for your canvas element:
+      var canvas = document.getElementById('canvas');
+      var cs = getComputedStyle(canvas.parentElement);
+      var width = parseInt(cs.getPropertyValue('width'), 10);
+      var height = parseInt(cs.getPropertyValue('height'), 10);
+
+      canvas.width = width;
+      canvas.height = height;
+    }
+    function minimizeWindow() {
+      ipcRenderer.send('minimize');
+    }
+    function closeWindow() {
+      ipcRenderer.send('quit');
+    }
+
+    resizeCanvas();
+    shapes.init(canvas);
+  </script>
+</body>
+
 </html>
