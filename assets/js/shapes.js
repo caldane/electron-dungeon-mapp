@@ -28,7 +28,11 @@ function Bitmap(img, x, y) {
   this.h = img.height;
 }
 
-function Background(fill) {
+function NoHitShape(x, y, w, h, fill) {
+  this.x = x || 0;
+  this.y = y || 0;
+  this.w = w || 1;
+  this.h = h || 1;
   this.fill = fill || '#656565';
 }
 
@@ -36,9 +40,9 @@ Bitmap.prototype.draw = function(ctx) {
   ctx.drawImage(this.img, this.x, this.y);
 }
 
-Background.prototype.draw = function(ctx) {
+NoHitShape.prototype.draw = function(ctx) {
   ctx.fillStyle = this.fill;
-  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.fillRect(this.x, this.y, this.w, this.h);
 }
 
 // Draws this shape to a given context
@@ -52,7 +56,7 @@ Bitmap.prototype.contains = function(mx, my) {
           (this.y <= my) && (this.y + this.img.height >= my);
 }
 
-Background.prototype.contains = () => false;
+NoHitShape.prototype.contains = () => false;
 
 // Determine if a point is inside the shape's bounds
 Shape.prototype.contains = function(mx, my) {
@@ -62,7 +66,7 @@ Shape.prototype.contains = function(mx, my) {
           (this.y <= my) && (this.y + this.h >= my);
 }
 
-function CanvasState(canvas) {
+function CanvasState(canvas, backgroundFill, maskFill) {
   // **** First some setup! ****
   
   this.canvas = canvas;
@@ -88,6 +92,9 @@ function CanvasState(canvas) {
   
   this.valid = false; // when set to false, the canvas will redraw everything
   this.shapes = [];  // the collection of things to be drawn
+  this.masks = [];
+  this.backgroundFill = backgroundFill;
+  this.maskFill = maskFill;
   this.dragging = false; // Keep track of when we are dragging
   // the current selected object. In the future we could turn this into an array for multiple selection
   this.selection = null;
@@ -174,6 +181,11 @@ CanvasState.prototype.addBackground = function(background) {
   this.valid = false;
 }
 
+CanvasState.prototype.addMask = function(shape) {
+  this.masks.push(shape);
+  this.valid = false;
+}
+
 CanvasState.prototype.clear = function() {
   this.ctx.clearRect(0, 0, this.width, this.height);
 }
@@ -185,19 +197,32 @@ CanvasState.prototype.draw = function() {
   if (!this.valid) {
     var ctx = this.ctx;
     var shapes = this.shapes;
+    var masks = this.masks;
     this.clear();
     
     // ** Add stuff you want drawn in the background all the time here **
-    
+    if(this.backgroundFill !== null) {
+      ctx.fillStyle = this.backgroundFill;
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    }
+
     // draw all shapes
     var l = shapes.length;
     for (var i = 0; i < l; i++) {
-      var shape = shapes[i];
-      // We can skip the drawing of elements that have moved off the screen:
-      // if (shape.x > this.width || shape.y > this.height ||
-      //     shape.x + shape.w < 0 || shape.y + shape.h < 0) continue;
+      ctx.globalCompositeOperation = 'source-over';
       shapes[i].draw(ctx);
     }
+
+    if(this.maskFill !== null) {
+      var imgShape = shapes[0];
+      ctx.fillStyle = this.maskFill;
+      ctx.fillRect(imgShape.x, imgShape.y, imgShape.img.width, imgShape.img.height);
+      //ctx.globalCompositeOperation = 'source-out';
+      for (var i = 0; i < masks.length; i++) {
+        masks[i].draw(ctx);
+      }
+    }
+
     
     // draw selection
     // right now this is just a stroke along the edge of the selected Shape
@@ -240,15 +265,22 @@ CanvasState.prototype.getMouse = function(e) {
   return {x: mx, y: my};
 }
 
+CanvasState.prototype.invalidate = function() {
+  this.valid = false;
+}
+
 // If you dont want to use <body onLoad='init()'>
 // You could uncomment this init() reference and place the script reference inside the body tag
 //init();
 
-function init(canvas, img) {
-  var s = new CanvasState(canvas);
+function init(canvas, img, backgroundFill, maskFill) {
+  var mskFill = maskFill || '#2361c080';
+  var s = new CanvasState(canvas, backgroundFill || '#656565', mskFill );
   console.log('fetching canvas');
-  s.addBackground(new Background());
   s.addImage(new Bitmap(img, 0, 0));
+  var mask = new NoHitShape(20, 20, 100, 100, '#FF0000');
+  s.addMask(mask);
+  return s;
 }
 
 // Now go make something amazing!

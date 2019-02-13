@@ -46,6 +46,9 @@
 
       canvas.width = width;
       canvas.height = height;
+      if (cvState !== undefined && cvState !== null) {
+        cvState.invalidate();
+      }
     }
     function minimizeWindow() {
       ipcRenderer.send('minimize');
@@ -57,7 +60,8 @@
     resizeCanvas();
     var img = new Image();
     img.src = './assets/img/dungeon.png';
-    shapes.init(canvas, img);
+    var cvState = shapes.init(canvas, img);
+    img.onload = () => cvState.invalidate();
   </script>
 </body>
 
