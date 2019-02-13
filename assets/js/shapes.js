@@ -28,8 +28,17 @@ function Bitmap(img, x, y) {
   this.h = img.height;
 }
 
+function Background(fill) {
+  this.fill = fill || '#656565';
+}
+
 Bitmap.prototype.draw = function(ctx) {
   ctx.drawImage(this.img, this.x, this.y);
+}
+
+Background.prototype.draw = function(ctx) {
+  ctx.fillStyle = this.fill;
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 }
 
 // Draws this shape to a given context
@@ -42,6 +51,8 @@ Bitmap.prototype.contains = function(mx, my) {
   return  (this.x <= mx) && (this.x + this.img.width >= mx) &&
           (this.y <= my) && (this.y + this.img.height >= my);
 }
+
+Background.prototype.contains = () => false;
 
 // Determine if a point is inside the shape's bounds
 Shape.prototype.contains = function(mx, my) {
@@ -158,6 +169,11 @@ CanvasState.prototype.addImage = function(img) {
   this.valid = false;
 }
 
+CanvasState.prototype.addBackground = function(background) {
+  this.shapes.push(background);
+  this.valid = false;
+}
+
 CanvasState.prototype.clear = function() {
   this.ctx.clearRect(0, 0, this.width, this.height);
 }
@@ -231,6 +247,7 @@ CanvasState.prototype.getMouse = function(e) {
 function init(canvas, img) {
   var s = new CanvasState(canvas);
   console.log('fetching canvas');
+  s.addBackground(new Background());
   s.addImage(new Bitmap(img, 0, 0));
 }
 
