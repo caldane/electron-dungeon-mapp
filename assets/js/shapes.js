@@ -20,10 +20,27 @@ function Shape(x, y, w, h, fill) {
   this.fill = fill || '#AAAAAA';
 }
 
+function Bitmap(img, x, y) {
+  this.img = img;
+  this.x = x || 0;
+  this.y = y || 0;
+  this.w = img.width;
+  this.h = img.height;
+}
+
+Bitmap.prototype.draw = function(ctx) {
+  ctx.drawImage(this.img, this.x, this.y);
+}
+
 // Draws this shape to a given context
 Shape.prototype.draw = function(ctx) {
   ctx.fillStyle = this.fill;
   ctx.fillRect(this.x, this.y, this.w, this.h);
+}
+
+Bitmap.prototype.contains = function(mx, my) {
+  return  (this.x <= mx) && (this.x + this.img.width >= mx) &&
+          (this.y <= my) && (this.y + this.img.height >= my);
 }
 
 // Determine if a point is inside the shape's bounds
@@ -136,6 +153,11 @@ CanvasState.prototype.addShape = function(shape) {
   this.valid = false;
 }
 
+CanvasState.prototype.addImage = function(img) {
+  this.shapes.push(img);
+  this.valid = false;
+}
+
 CanvasState.prototype.clear = function() {
   this.ctx.clearRect(0, 0, this.width, this.height);
 }
@@ -156,8 +178,8 @@ CanvasState.prototype.draw = function() {
     for (var i = 0; i < l; i++) {
       var shape = shapes[i];
       // We can skip the drawing of elements that have moved off the screen:
-      if (shape.x > this.width || shape.y > this.height ||
-          shape.x + shape.w < 0 || shape.y + shape.h < 0) continue;
+      // if (shape.x > this.width || shape.y > this.height ||
+      //     shape.x + shape.w < 0 || shape.y + shape.h < 0) continue;
       shapes[i].draw(ctx);
     }
     
@@ -206,14 +228,10 @@ CanvasState.prototype.getMouse = function(e) {
 // You could uncomment this init() reference and place the script reference inside the body tag
 //init();
 
-function init(canvas) {
+function init(canvas, img) {
   var s = new CanvasState(canvas);
   console.log('fetching canvas');
-  s.addShape(new Shape(40,40,50,50)); // The default is gray
-  s.addShape(new Shape(60,140,40,60, 'lightskyblue'));
-  // Lets make some partially transparent
-  s.addShape(new Shape(80,150,60,30, 'rgba(127, 255, 212, .5)'));
-  s.addShape(new Shape(125,80,30,80, 'rgba(245, 222, 179, .7)'));
+  s.addImage(new Bitmap(img, 0, 0));
 }
 
 // Now go make something amazing!

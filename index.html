@@ -55,7 +55,9 @@
     }
 
     resizeCanvas();
-    shapes.init(canvas);
+    var img = new Image();
+    img.src = './assets/img/dungeon.png';
+    shapes.init(canvas, img);
   </script>
 </body>
 

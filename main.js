@@ -57,5 +57,5 @@ ipcMain.on('quit', function () {
 })
 
 ipcMain.on('minimize', function () {
-  
+  mainWindow.minimize();
 })
