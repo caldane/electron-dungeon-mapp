@@ -36,51 +36,53 @@ function NoHitShape(x, y, w, h, fill) {
   this.fill = fill || '#656565';
 }
 
-Bitmap.prototype.draw = function(ctx) {
+Bitmap.prototype.draw = function (ctx) {
   ctx.drawImage(this.img, this.x, this.y);
 }
 
-NoHitShape.prototype.draw = function(ctx) {
+NoHitShape.prototype.draw = function (ctx) {
   ctx.fillStyle = this.fill;
   ctx.fillRect(this.x, this.y, this.w, this.h);
 }
 
 // Draws this shape to a given context
-Shape.prototype.draw = function(ctx) {
+Shape.prototype.draw = function (ctx) {
   ctx.fillStyle = this.fill;
   ctx.fillRect(this.x, this.y, this.w, this.h);
 }
 
-Bitmap.prototype.contains = function(mx, my) {
-  return  (this.x <= mx) && (this.x + this.img.width >= mx) &&
-          (this.y <= my) && (this.y + this.img.height >= my);
+Bitmap.prototype.contains = function (mx, my) {
+  return (this.x <= mx) && (this.x + this.img.width >= mx) &&
+    (this.y <= my) && (this.y + this.img.height >= my);
 }
 
 NoHitShape.prototype.contains = () => false;
 
 // Determine if a point is inside the shape's bounds
-Shape.prototype.contains = function(mx, my) {
+Shape.prototype.contains = function (mx, my) {
   // All we have to do is make sure the Mouse X,Y fall in the area between
   // the shape's X and (X + Width) and its Y and (Y + Height)
-  return  (this.x <= mx) && (this.x + this.w >= mx) &&
-          (this.y <= my) && (this.y + this.h >= my);
+  return (this.x <= mx) && (this.x + this.w >= mx) &&
+    (this.y <= my) && (this.y + this.h >= my);
 }
 
-function CanvasState(canvas, backgroundFill, maskFill) {
+function CanvasState(canvas, buffer, backgroundFill, maskFill) {
   // **** First some setup! ****
-  
+
   this.canvas = canvas;
   this.width = canvas.width;
   this.height = canvas.height;
   this.ctx = canvas.getContext('2d');
+  this.buffer = buffer;
+  this.bufferCtx = buffer.getContext('2d');
   // This complicates things a little but but fixes mouse co-ordinate problems
   // when there's a border or padding. See getMouse for more detail
   var stylePaddingLeft, stylePaddingTop, styleBorderLeft, styleBorderTop;
   if (document.defaultView && document.defaultView.getComputedStyle) {
-    this.stylePaddingLeft = parseInt(document.defaultView.getComputedStyle(canvas, null)['paddingLeft'], 10)      || 0;
-    this.stylePaddingTop  = parseInt(document.defaultView.getComputedStyle(canvas, null)['paddingTop'], 10)       || 0;
-    this.styleBorderLeft  = parseInt(document.defaultView.getComputedStyle(canvas, null)['borderLeftWidth'], 10)  || 0;
-    this.styleBorderTop   = parseInt(document.defaultView.getComputedStyle(canvas, null)['borderTopWidth'], 10)   || 0;
+    this.stylePaddingLeft = parseInt(document.defaultView.getComputedStyle(canvas, null)['paddingLeft'], 10) || 0;
+    this.stylePaddingTop = parseInt(document.defaultView.getComputedStyle(canvas, null)['paddingTop'], 10) || 0;
+    this.styleBorderLeft = parseInt(document.defaultView.getComputedStyle(canvas, null)['borderLeftWidth'], 10) || 0;
+    this.styleBorderTop = parseInt(document.defaultView.getComputedStyle(canvas, null)['borderTopWidth'], 10) || 0;
   }
   // Some pages have fixed-position bars (like the stumbleupon bar) at the top or left of the page
   // They will mess up mouse coordinates and this fixes that
@@ -89,7 +91,7 @@ function CanvasState(canvas, backgroundFill, maskFill) {
   this.htmlLeft = html.offsetLeft;
 
   // **** Keep track of state! ****
-  
+
   this.valid = false; // when set to false, the canvas will redraw everything
   this.shapes = [];  // the collection of things to be drawn
   this.masks = [];
@@ -100,26 +102,26 @@ function CanvasState(canvas, backgroundFill, maskFill) {
   this.selection = null;
   this.dragoffx = 0; // See mousedown and mousemove events for explanation
   this.dragoffy = 0;
-  
+
   // **** Then events! ****
-  
+
   // This is an example of a closure!
   // Right here "this" means the CanvasState. But we are making events on the Canvas itself,
   // and when the events are fired on the canvas the variable "this" is going to mean the canvas!
   // Since we still want to use this particular CanvasState in the events we have to save a reference to it.
   // This is our reference!
   var myState = this;
-  
+
   //fixes a problem where double clicking causes text to get selected on the canvas
-  canvas.addEventListener('selectstart', function(e) { e.preventDefault(); return false; }, false);
+  canvas.addEventListener('selectstart', function (e) { e.preventDefault(); return false; }, false);
   // Up, down, and move are for dragging
-  canvas.addEventListener('mousedown', function(e) {
+  canvas.addEventListener('mousedown', function (e) {
     var mouse = myState.getMouse(e);
     var mx = mouse.x;
     var my = mouse.y;
     var shapes = myState.shapes;
     var l = shapes.length;
-    for (var i = l-1; i >= 0; i--) {
+    for (var i = l - 1; i >= 0; i--) {
       if (shapes[i].contains(mx, my)) {
         var mySel = shapes[i];
         // Keep track of where in the object we clicked
@@ -139,69 +141,66 @@ function CanvasState(canvas, backgroundFill, maskFill) {
       myState.valid = false; // Need to clear the old selection border
     }
   }, true);
-  canvas.addEventListener('mousemove', function(e) {
-    if (myState.dragging){
+  canvas.addEventListener('mousemove', function (e) {
+    if (myState.dragging) {
       var mouse = myState.getMouse(e);
       // We don't want to drag the object by its top-left corner, we want to drag it
       // from where we clicked. Thats why we saved the offset and use it here
       myState.selection.x = mouse.x - myState.dragoffx;
-      myState.selection.y = mouse.y - myState.dragoffy;   
+      myState.selection.y = mouse.y - myState.dragoffy;
       myState.valid = false; // Something's dragging so we must redraw
     }
   }, true);
-  canvas.addEventListener('mouseup', function(e) {
+  canvas.addEventListener('mouseup', function (e) {
     myState.dragging = false;
   }, true);
-  // double click for making new shapes
-  canvas.addEventListener('dblclick', function(e) {
-    var mouse = myState.getMouse(e);
-    myState.addShape(new Shape(mouse.x - 10, mouse.y - 10, 20, 20, 'rgba(0,255,0,.6)'));
-  }, true);
-  
+
+
   // **** Options! ****
-  
+
   this.selectionColor = '#CC0000';
-  this.selectionWidth = 2;  
+  this.selectionWidth = 2;
   this.interval = 30;
-  setInterval(function() { myState.draw(); }, myState.interval);
+  setInterval(function () { myState.draw(); }, myState.interval);
 }
 
-CanvasState.prototype.addShape = function(shape) {
+CanvasState.prototype.addShape = function (shape) {
   this.shapes.push(shape);
   this.valid = false;
 }
 
-CanvasState.prototype.addImage = function(img) {
+CanvasState.prototype.addImage = function (img) {
   this.shapes.push(img);
   this.valid = false;
 }
 
-CanvasState.prototype.addBackground = function(background) {
+CanvasState.prototype.addBackground = function (background) {
   this.shapes.push(background);
   this.valid = false;
 }
 
-CanvasState.prototype.addMask = function(shape) {
+CanvasState.prototype.addMask = function (shape) {
   this.masks.push(shape);
   this.valid = false;
 }
 
-CanvasState.prototype.clear = function() {
+CanvasState.prototype.clear = function () {
   this.ctx.clearRect(0, 0, this.width, this.height);
 }
 
 // While draw is called as often as the INTERVAL variable demands,
 // It only ever does something if the canvas gets invalidated by our code
-CanvasState.prototype.draw = function() {
+CanvasState.prototype.draw = function () {
   // if our state is invalid, redraw and validate!
   if (!this.valid) {
     var ctx = this.ctx;
+    var bufferCtx = this.bufferCtx;
     var shapes = this.shapes;
     var masks = this.masks;
     this.clear();
-    
+
     // ** Add stuff you want drawn in the background all the time here **
-    if(this.backgroundFill !== null) {
+    if (this.backgroundFill !== null) {
       ctx.fillStyle = this.backgroundFill;
       ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     }
@@ -209,32 +208,40 @@ CanvasState.prototype.draw = function() {
     // draw all shapes
     var l = shapes.length;
     for (var i = 0; i < l; i++) {
-      ctx.globalCompositeOperation = 'source-over';
       shapes[i].draw(ctx);
     }
 
-    if(this.maskFill !== null) {
+    if (this.maskFill !== null) {
       var imgShape = shapes[0];
-      ctx.fillStyle = this.maskFill;
-      ctx.fillRect(imgShape.x, imgShape.y, imgShape.img.width, imgShape.img.height);
-      //ctx.globalCompositeOperation = 'source-out';
+      bufferCtx.globalCompositeOperation = 'source-over';
+      bufferCtx.fillStyle = this.maskFill;
+      bufferCtx.fillRect(0,0, this.buffer.width, this.buffer.height);
+      bufferCtx.globalCompositeOperation = 'destination-out';
       for (var i = 0; i < masks.length; i++) {
-        masks[i].draw(ctx);
+        masks[i].draw(bufferCtx);
       }
+
+      var maskData = this.buffer.toDataURL("image/png");
+      var mask = new Image();
+      mask.onload = function(){
+        bufferCtx.clearRect(0,0, bufferCtx.canvas.width, bufferCtx.canvas.height);
+        ctx.drawImage(mask, shapes[0].x, shapes[0].y);
+      }
+      mask.src = maskData;
     }
 
-    
+
     // draw selection
     // right now this is just a stroke along the edge of the selected Shape
     if (this.selection != null) {
       ctx.strokeStyle = this.selectionColor;
       ctx.lineWidth = this.selectionWidth;
       var mySel = this.selection;
-      ctx.strokeRect(mySel.x,mySel.y,mySel.w,mySel.h);
+      ctx.strokeRect(mySel.x, mySel.y, mySel.w, mySel.h);
     }
-    
+
     // ** Add stuff you want drawn on top all the time here **
-    
+
     this.valid = true;
   }
 }
@@ -242,9 +249,9 @@ CanvasState.prototype.draw = function() {
 
 // Creates an object with x and y defined, set to the mouse position relative to the state's canvas
 // If you wanna be super-correct this can be tricky, we have to worry about padding and borders
-CanvasState.prototype.getMouse = function(e) {
+CanvasState.prototype.getMouse = function (e) {
   var element = this.canvas, offsetX = 0, offsetY = 0, mx, my;
-  
+
   // Compute the total offset
   if (element.offsetParent !== undefined) {
     do {
@@ -260,12 +267,12 @@ CanvasState.prototype.getMouse = function(e) {
 
   mx = e.pageX - offsetX;
   my = e.pageY - offsetY;
-  
+
   // We return a simple javascript object (a hash) with x and y defined
-  return {x: mx, y: my};
+  return { x: mx, y: my };
 }
 
-CanvasState.prototype.invalidate = function() {
+CanvasState.prototype.invalidate = function () {
   this.valid = false;
 }
 
@@ -273,9 +280,10 @@ CanvasState.prototype.invalidate = function() {
 // You could uncomment this init() reference and place the script reference inside the body tag
 //init();
 
-function init(canvas, img, backgroundFill, maskFill) {
-  var mskFill = maskFill || '#2361c080';
-  var s = new CanvasState(canvas, backgroundFill || '#656565', mskFill );
+function init(canvas, img, buffer, backgroundFill, maskFill) {
+  buffer.height = img.height;
+  buffer.width = img.width;
+  var s = new CanvasState(canvas, buffer, backgroundFill || '#656565', maskFill || '#2361c080');
   console.log('fetching canvas');
   s.addImage(new Bitmap(img, 0, 0));
   var mask = new NoHitShape(20, 20, 100, 100, '#FF0000');
