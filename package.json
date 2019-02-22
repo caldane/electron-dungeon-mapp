@@ -20,6 +20,8 @@
     "electron": "^4.0.3"
   },
   "dependencies": {
-    "npm": "^6.7.0"
+    "@material/icon-toggle": "^0.44.1",
+    "mdbootstrap": "^4.7.3",
+    "npm": "^6.8.0"
   }
 }

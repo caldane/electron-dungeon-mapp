@@ -75,6 +75,7 @@ function CanvasState(canvas, buffer, backgroundFill, maskFill) {
   this.ctx = canvas.getContext('2d');
   this.buffer = buffer;
   this.bufferCtx = buffer.getContext('2d');
+  this.bufferCtx.filter = 'blur(14px)';
   // This complicates things a little but but fixes mouse co-ordinate problems
   // when there's a border or padding. See getMouse for more detail
   var stylePaddingLeft, stylePaddingTop, styleBorderLeft, styleBorderTop;
@@ -95,6 +96,11 @@ function CanvasState(canvas, buffer, backgroundFill, maskFill) {
   this.valid = false; // when set to false, the canvas will redraw everything
   this.shapes = [];  // the collection of things to be drawn
   this.masks = [];
+  this.mask = new Image();
+  this.mask.onload = function () {
+    bufferCtx.clearRect(0, 0, bufferCtx.canvas.width, bufferCtx.canvas.height);
+  }
+
   this.backgroundFill = backgroundFill;
   this.maskFill = maskFill;
   this.dragging = false; // Keep track of when we are dragging
@@ -104,56 +110,13 @@ function CanvasState(canvas, buffer, backgroundFill, maskFill) {
   this.dragoffy = 0;
 
   // **** Then events! ****
-
+  this.navigateMode();
   // This is an example of a closure!
   // Right here "this" means the CanvasState. But we are making events on the Canvas itself,
   // and when the events are fired on the canvas the variable "this" is going to mean the canvas!
   // Since we still want to use this particular CanvasState in the events we have to save a reference to it.
   // This is our reference!
   var myState = this;
-
-  //fixes a problem where double clicking causes text to get selected on the canvas
-  canvas.addEventListener('selectstart', function (e) { e.preventDefault(); return false; }, false);
-  // Up, down, and move are for dragging
-  canvas.addEventListener('mousedown', function (e) {
-    var mouse = myState.getMouse(e);
-    var mx = mouse.x;
-    var my = mouse.y;
-    var shapes = myState.shapes;
-    var l = shapes.length;
-    for (var i = l - 1; i >= 0; i--) {
-      if (shapes[i].contains(mx, my)) {
-        var mySel = shapes[i];
-        // Keep track of where in the object we clicked
-        // so we can move it smoothly (see mousemove)
-        myState.dragoffx = mx - mySel.x;
-        myState.dragoffy = my - mySel.y;
-        myState.dragging = true;
-        myState.selection = mySel;
-        myState.valid = false;
-        return;
-      }
-    }
-    // havent returned means we have failed to select anything.
-    // If there was an object selected, we deselect it
-    if (myState.selection) {
-      myState.selection = null;
-      myState.valid = false; // Need to clear the old selection border
-    }
-  }, true);
-  canvas.addEventListener('mousemove', function (e) {
-    if (myState.dragging) {
-      var mouse = myState.getMouse(e);
-      // We don't want to drag the object by its top-left corner, we want to drag it
-      // from where we clicked. Thats why we saved the offset and use it here
-      myState.selection.x = mouse.x - myState.dragoffx;
-      myState.selection.y = mouse.y - myState.dragoffy;
-      myState.valid = false; // Something's dragging so we must redraw
-    }
-  }, true);
-  canvas.addEventListener('mouseup', function (e) {
-    myState.dragging = false;
-  }, true);
 
 
   // **** Options! ****
@@ -181,6 +144,21 @@ CanvasState.prototype.addBackground = function (background) {
 
 CanvasState.prototype.addMask = function (shape) {
   this.masks.push(shape);
+  var imgBuffer = 20;
+  var bufferCtx = this.bufferCtx;
+
+  bufferCtx.globalCompositeOperation = 'source-over';
+  bufferCtx.fillStyle = this.maskFill;
+  bufferCtx.fillRect(-1 * imgBuffer, -1 * imgBuffer, this.buffer.width + (imgBuffer * 2), this.buffer.height + (imgBuffer * 2));
+  bufferCtx.globalCompositeOperation = 'destination-out';
+  for (var i = 0; i < this.masks.length; i++) {
+    this.masks[i].draw(bufferCtx);
+  }
+  //bufferCtx.filter = 'blur(14px)';
+
+  var maskData = this.buffer.toDataURL("image/png");
+  this.mask.src = maskData;
+
   this.valid = false;
 }
 
@@ -194,9 +172,7 @@ CanvasState.prototype.draw = function () {
   // if our state is invalid, redraw and validate!
   if (!this.valid) {
     var ctx = this.ctx;
-    var bufferCtx = this.bufferCtx;
     var shapes = this.shapes;
-    var masks = this.masks;
     this.clear();
 
     // ** Add stuff you want drawn in the background all the time here **
@@ -206,28 +182,12 @@ CanvasState.prototype.draw = function () {
     }
 
     // draw all shapes
-    var l = shapes.length;
-    for (var i = 0; i < l; i++) {
+    for (var i = 0; i < shapes.length; i++) {
       shapes[i].draw(ctx);
     }
 
     if (this.maskFill !== null) {
-      var imgShape = shapes[0];
-      bufferCtx.globalCompositeOperation = 'source-over';
-      bufferCtx.fillStyle = this.maskFill;
-      bufferCtx.fillRect(0,0, this.buffer.width, this.buffer.height);
-      bufferCtx.globalCompositeOperation = 'destination-out';
-      for (var i = 0; i < masks.length; i++) {
-        masks[i].draw(bufferCtx);
-      }
-
-      var maskData = this.buffer.toDataURL("image/png");
-      var mask = new Image();
-      mask.onload = function(){
-        bufferCtx.clearRect(0,0, bufferCtx.canvas.width, bufferCtx.canvas.height);
-        ctx.drawImage(mask, shapes[0].x, shapes[0].y);
-      }
-      mask.src = maskData;
+      ctx.drawImage(this.mask, shapes[0].x, shapes[0].y);
     }
 
 
@@ -276,6 +236,49 @@ CanvasState.prototype.invalidate = function () {
   this.valid = false;
 }
 
+CanvasState.prototype.addEvents = function() {
+  canvas.addEventListener('selectstart', this);
+  // Up, down, and move are for dragging
+  canvas.addEventListener('mousedown', this);
+  canvas.addEventListener('mousemove', this);
+  canvas.addEventListener('mouseup', this);
+}
+
+CanvasState.prototype.removeEvents = function() {
+  canvas.removeEventListener('selectstart', this);
+  canvas.removeEventListener('mousedown', this);
+  canvas.removeEventListener('mousemove', this);
+  canvas.removeEventListener('mouseup', this);
+}
+
+CanvasState.prototype.navigateMode = function() {
+  this.addEvents();
+}
+CanvasState.prototype.drawMode = function() {
+  this.removeEvents();
+}
+
+CanvasState.prototype.handleEvent = function (e) {
+  switch (e.type) {
+    case 'selectstart': {
+      e.preventDefault(); 
+      return false; 
+    }
+    case 'mousedown': 
+      MouseDown(e, this);
+      break;
+    
+    case 'mousemove': 
+      MouseMove(e, this);
+      break;
+    
+    case 'mouseup': 
+      MouseUp(e, this);
+      break;
+    
+  }
+}
+
 // If you dont want to use <body onLoad='init()'>
 // You could uncomment this init() reference and place the script reference inside the body tag
 //init();
@@ -286,9 +289,49 @@ function init(canvas, img, buffer, backgroundFill, maskFill) {
   var s = new CanvasState(canvas, buffer, backgroundFill || '#656565', maskFill || '#2361c080');
   console.log('fetching canvas');
   s.addImage(new Bitmap(img, 0, 0));
-  var mask = new NoHitShape(20, 20, 100, 100, '#FF0000');
-  s.addMask(mask);
+  s.addMask(new NoHitShape(20, 20, 100, 100, '#FF0000'));
+  s.addMask(new NoHitShape(110, 160, 100, 100, '#FF0000'));
   return s;
+}
+
+function MouseDown(e, myState) {
+  var mouse = myState.getMouse(e);
+  var mx = mouse.x;
+  var my = mouse.y;
+  var shapes = myState.shapes;
+  var l = shapes.length;
+  for (var i = l - 1; i >= 0; i--) {
+    if (shapes[i].contains(mx, my)) {
+      var mySel = shapes[i];
+      // Keep track of where in the object we clicked
+      // so we can move it smoothly (see mousemove)
+      myState.dragoffx = mx - mySel.x;
+      myState.dragoffy = my - mySel.y;
+      myState.dragging = true;
+      myState.selection = mySel;
+      myState.valid = false;
+      return;
+    }
+  }
+  // havent returned means we have failed to select anything.
+  // If there was an object selected, we deselect it
+  if (myState.selection) {
+    myState.selection = null;
+    myState.valid = false; // Need to clear the old selection border
+  }
+}
+function MouseMove(e, myState) {
+  if (myState.dragging) {
+    var mouse = myState.getMouse(e);
+    // We don't want to drag the object by its top-left corner, we want to drag it
+    // from where we clicked. Thats why we saved the offset and use it here
+    myState.selection.x = mouse.x - myState.dragoffx;
+    myState.selection.y = mouse.y - myState.dragoffy;
+    myState.valid = false; // Something's dragging so we must redraw
+  }
+}
+function MouseUp(e, myState) {
+  myState.dragging = false;
 }
 
 // Now go make something amazing!

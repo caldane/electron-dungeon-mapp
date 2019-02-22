@@ -3,9 +3,13 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hello World!</title>
   <link rel="stylesheet" type="text/css" href="./assets/css/site.css">
   <link href="https://fonts.googleapis.com/css?family=Montserrat" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+  <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
 </head>
 
 <body onresize="resizeCanvas()">
@@ -21,6 +25,14 @@
       </nav>
     </header>
     <div id="btn-bar">
+      <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="icon-toggle-1">
+        <input type="radio" id="icon-toggle-1" name="mouse-mode" class="mdl-icon-toggle__input" value="navigate">
+        <i class="mdl-icon-toggle__label material-icons">pan_tool</i>
+      </label>
+      <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="icon-toggle-2">
+        <input type="radio" id="icon-toggle-2" name="mouse-mode" class="mdl-icon-toggle__input" value="draw">
+        <i class="mdl-icon-toggle__label material-icons">brush</i>
+      </label>
     </div>
     <main>
       <canvas id="canvas" width="400" height="300">
@@ -30,12 +42,20 @@
     </main>
   </div>
 
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdbootstrap/4.7.1/js/mdb.min.js"></script>
   <script>
     // You can also require other files to run in this process
     require('./renderer.js');
     const electron = require('electron');
     const { ipcRenderer } = electron;
     var shapes = require('./assets/js/shapes.js');
+
+    document.addEventListener("DOMContentLoaded", function (event) {
+      var radios = document.getElementsByName("mouse-mode");
+      for (var i = 0; i < radios.length; i++) {
+        radios[i].addEventListener('change', navMode(radios[i]), true);
+      }
+    });
 
     function resizeCanvas() {
       /// now use this as width and height for your canvas element:
@@ -56,14 +76,22 @@
     function closeWindow() {
       ipcRenderer.send('quit');
     }
+    function navMode(element) {
+      if (element.value == 'navigate' && element.checked) {
+        shapes.navigateMode();
+      }
+      if (element.value == 'draw' && element.checked) {
+        shapes.drawMode();
+      }
+    }
 
     resizeCanvas();
     var img = new Image();
     var cvState;
     img.onload = function () {
-      cvState = shapes.init(canvas, img, document.createElement('canvas'));      
+      cvState = shapes.init(canvas, img, document.createElement('canvas'));
       cvState.invalidate();
-    } 
+    }
     img.src = './assets/img/dungeon.png';
 
   </script>
