@@ -36,19 +36,19 @@ function NoHitShape(x, y, w, h, fill) {
   this.fill = fill || '#656565';
 }
 
-Bitmap.prototype.draw = function (ctx) {
-  ctx.drawImage(this.img, this.x, this.y);
+Bitmap.prototype.draw = function (ctx, zoom) {
+  ctx.drawImage(this.img, this.x, this.y, this.w * zoom, this.h * zoom);
 }
 
-NoHitShape.prototype.draw = function (ctx) {
+NoHitShape.prototype.draw = function (ctx, zoom) {
   ctx.fillStyle = this.fill;
-  ctx.fillRect(this.x, this.y, this.w, this.h);
+  ctx.fillRect(this.x, this.y, this.w * zoom, this.h * zoom);
 }
 
 // Draws this shape to a given context
 Shape.prototype.draw = function (ctx) {
   ctx.fillStyle = this.fill;
-  ctx.fillRect(this.x, this.y, this.w, this.h);
+  ctx.fillRect(this.x, this.y, this.w * zoom, this.h * zoom);
 }
 
 Bitmap.prototype.contains = function (mx, my) {
@@ -76,6 +76,7 @@ function CanvasState(canvas, buffer, backgroundFill, maskFill) {
   this.buffer = buffer;
   this.bufferCtx = buffer.getContext('2d');
   this.bufferCtx.filter = 'blur(14px)';
+  this.ZoomFactor = 1;
   // This complicates things a little but but fixes mouse co-ordinate problems
   // when there's a border or padding. See getMouse for more detail
   var stylePaddingLeft, stylePaddingTop, styleBorderLeft, styleBorderTop;
@@ -97,8 +98,11 @@ function CanvasState(canvas, buffer, backgroundFill, maskFill) {
   this.shapes = [];  // the collection of things to be drawn
   this.masks = [];
   this.mask = new Image();
+  this.mask.ctx = this.bufferCtx;
   this.mask.onload = function () {
-    bufferCtx.clearRect(0, 0, bufferCtx.canvas.width, bufferCtx.canvas.height);
+    if(this.ctx) {
+      this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+    }
   }
 
   this.backgroundFill = backgroundFill;
@@ -110,7 +114,7 @@ function CanvasState(canvas, buffer, backgroundFill, maskFill) {
   this.dragoffy = 0;
 
   // **** Then events! ****
-  this.navigateMode();
+  this.addEvents();
   // This is an example of a closure!
   // Right here "this" means the CanvasState. But we are making events on the Canvas itself,
   // and when the events are fired on the canvas the variable "this" is going to mean the canvas!
@@ -174,6 +178,7 @@ CanvasState.prototype.draw = function () {
     var ctx = this.ctx;
     var shapes = this.shapes;
     this.clear();
+    var zoom = this.ZoomFactor;
 
     // ** Add stuff you want drawn in the background all the time here **
     if (this.backgroundFill !== null) {
@@ -183,11 +188,11 @@ CanvasState.prototype.draw = function () {
 
     // draw all shapes
     for (var i = 0; i < shapes.length; i++) {
-      shapes[i].draw(ctx);
+      shapes[i].draw(ctx, zoom);
     }
 
     if (this.maskFill !== null) {
-      ctx.drawImage(this.mask, shapes[0].x, shapes[0].y);
+      ctx.drawImage(this.mask, shapes[0].x, shapes[0].y, shapes[0].w * zoom, shapes[0].h * zoom);
     }
 
 
@@ -197,7 +202,7 @@ CanvasState.prototype.draw = function () {
       ctx.strokeStyle = this.selectionColor;
       ctx.lineWidth = this.selectionWidth;
       var mySel = this.selection;
-      ctx.strokeRect(mySel.x, mySel.y, mySel.w, mySel.h);
+      ctx.strokeRect(mySel.x, mySel.y, mySel.w * zoom, mySel.h * zoom);
     }
 
     // ** Add stuff you want drawn on top all the time here **
@@ -236,46 +241,44 @@ CanvasState.prototype.invalidate = function () {
   this.valid = false;
 }
 
-CanvasState.prototype.addEvents = function() {
+CanvasState.prototype.addEvents = function () {
   canvas.addEventListener('selectstart', this);
   // Up, down, and move are for dragging
   canvas.addEventListener('mousedown', this);
   canvas.addEventListener('mousemove', this);
   canvas.addEventListener('mouseup', this);
+  canvas.addEventListener("wheel", this);
 }
 
-CanvasState.prototype.removeEvents = function() {
+CanvasState.prototype.removeEvents = function () {
   canvas.removeEventListener('selectstart', this);
   canvas.removeEventListener('mousedown', this);
   canvas.removeEventListener('mousemove', this);
   canvas.removeEventListener('mouseup', this);
 }
 
-CanvasState.prototype.navigateMode = function() {
-  this.addEvents();
-}
-CanvasState.prototype.drawMode = function() {
-  this.removeEvents();
-}
 
 CanvasState.prototype.handleEvent = function (e) {
   switch (e.type) {
     case 'selectstart': {
-      e.preventDefault(); 
-      return false; 
+      e.preventDefault();
+      return false;
     }
-    case 'mousedown': 
+    case 'mousedown':
       MouseDown(e, this);
       break;
-    
-    case 'mousemove': 
+
+    case 'mousemove':
       MouseMove(e, this);
       break;
-    
-    case 'mouseup': 
+
+    case 'mouseup':
       MouseUp(e, this);
       break;
-    
+
+    case 'wheel':
+      MouseWheel(e, this);
+      break;
   }
 }
 
@@ -287,6 +290,7 @@ function init(canvas, img, buffer, backgroundFill, maskFill) {
   buffer.height = img.height;
   buffer.width = img.width;
   var s = new CanvasState(canvas, buffer, backgroundFill || '#656565', maskFill || '#2361c080');
+  this.canvasState = s;
   console.log('fetching canvas');
   s.addImage(new Bitmap(img, 0, 0));
   s.addMask(new NoHitShape(20, 20, 100, 100, '#FF0000'));
@@ -333,6 +337,24 @@ function MouseMove(e, myState) {
 function MouseUp(e, myState) {
   myState.dragging = false;
 }
+function MouseWheel(e, myState) {
+  if (e.deltaY < 0) {
+    console.log('scrolling up');
+    myState.ZoomFactor *= 1.2;
+  }
+  if (e.deltaY > 0) {
+    console.log('scrolling down');
+    myState.ZoomFactor *= .8;
+  }
+  myState.valid = false; // Something's dragging so we must redraw
+}
 
 // Now go make something amazing!
 exports.init = init;
+
+exports.drawMode = function () {
+  this.canvasState.removeEvents();
+}
+exports.navigateMode = function () {
+  this.canvasState.addEvents();
+}

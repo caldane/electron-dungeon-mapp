@@ -25,14 +25,18 @@
       </nav>
     </header>
     <div id="btn-bar">
-      <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="icon-toggle-1">
-        <input type="radio" id="icon-toggle-1" name="mouse-mode" class="mdl-icon-toggle__input" value="navigate">
-        <i class="mdl-icon-toggle__label material-icons">pan_tool</i>
-      </label>
-      <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="icon-toggle-2">
-        <input type="radio" id="icon-toggle-2" name="mouse-mode" class="mdl-icon-toggle__input" value="draw">
-        <i class="mdl-icon-toggle__label material-icons">brush</i>
-      </label>
+      <div id="nav-modes">
+        <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="icon-toggle-1"
+          onclick="navMode('nav', this)">
+          <input type="radio" id="icon-toggle-1" name="mouse-mode" class="mdl-icon-toggle__input" value="navigate">
+          <i class="mdl-icon-toggle__label material-icons">pan_tool</i>
+        </label>
+        <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="icon-toggle-2"
+          onclick="navMode('draw', this)">
+          <input type="radio" id="icon-toggle-2" name="mouse-mode" class="mdl-icon-toggle__input" value="draw">
+          <i class="mdl-icon-toggle__label material-icons">brush</i>
+        </label>
+      </div>
     </div>
     <main>
       <canvas id="canvas" width="400" height="300">
@@ -49,13 +53,6 @@
     const electron = require('electron');
     const { ipcRenderer } = electron;
     var shapes = require('./assets/js/shapes.js');
-
-    document.addEventListener("DOMContentLoaded", function (event) {
-      var radios = document.getElementsByName("mouse-mode");
-      for (var i = 0; i < radios.length; i++) {
-        radios[i].addEventListener('change', navMode(radios[i]), true);
-      }
-    });
 
     function resizeCanvas() {
       /// now use this as width and height for your canvas element:
@@ -76,11 +73,21 @@
     function closeWindow() {
       ipcRenderer.send('quit');
     }
-    function navMode(element) {
-      if (element.value == 'navigate' && element.checked) {
-        shapes.navigateMode();
+    function navMode(mode, element) {
+      var elements = document.getElementsByClassName("is-checked");
+      var radios = [];
+      for (var i = 0; i < elements.length; i++) {
+        if(element[i].parent.Id === 'nav-modes'){
+          radios.push(elements[i]);
+        }
       }
-      if (element.value == 'draw' && element.checked) {
+      for (var i = 0; i < radios.length; i++) {
+        var radio = radios[i];
+        radio.classList.remove("is-checked");
+      }
+      if (mode == 'nav') {
+        shapes.navigateMode();
+      } else if (mode == 'draw') {
         shapes.drawMode();
       }
     }
