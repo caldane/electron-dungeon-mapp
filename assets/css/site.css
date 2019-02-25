@@ -1,5 +1,6 @@
 html {
     height: 100%;
+    overflow: hidden;
 }
 
 body {
@@ -10,7 +11,7 @@ body {
 .container {
     height: 100%;
     display: grid;
-    grid-template-rows: 34px 42px auto;
+    grid-template-rows: 34px 3rem auto;
 }
 
 .container header {
@@ -53,7 +54,7 @@ body {
 }
 
 #btn-bar {
-    height: 42px;
+    height: 3rem;
 }
 
 main {

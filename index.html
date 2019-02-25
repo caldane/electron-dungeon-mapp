@@ -27,12 +27,12 @@
     <div id="btn-bar">
       <div id="nav-modes">
         <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="icon-toggle-1"
-          onclick="navMode('nav', this)">
+          onclick="navMode('nav')">
           <input type="radio" id="icon-toggle-1" name="mouse-mode" class="mdl-icon-toggle__input" value="navigate">
           <i class="mdl-icon-toggle__label material-icons">pan_tool</i>
         </label>
         <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="icon-toggle-2"
-          onclick="navMode('draw', this)">
+          onclick="navMode('draw')">
           <input type="radio" id="icon-toggle-2" name="mouse-mode" class="mdl-icon-toggle__input" value="draw">
           <i class="mdl-icon-toggle__label material-icons">brush</i>
         </label>
@@ -46,6 +46,7 @@
     </main>
   </div>
 
+  <script>window.$ = window.jQuery = require('jquery');</script>
   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdbootstrap/4.7.1/js/mdb.min.js"></script>
   <script>
     // You can also require other files to run in this process
@@ -73,14 +74,8 @@
     function closeWindow() {
       ipcRenderer.send('quit');
     }
-    function navMode(mode, element) {
-      var elements = document.getElementsByClassName("is-checked");
-      var radios = [];
-      for (var i = 0; i < elements.length; i++) {
-        if(element[i].parent.Id === 'nav-modes'){
-          radios.push(elements[i]);
-        }
-      }
+    function navMode(mode) {
+      var radios = $("#nav-modes .is-checked");
       for (var i = 0; i < radios.length; i++) {
         var radio = radios[i];
         radio.classList.remove("is-checked");

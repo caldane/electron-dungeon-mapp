@@ -100,7 +100,7 @@ function CanvasState(canvas, buffer, backgroundFill, maskFill) {
   this.mask = new Image();
   this.mask.ctx = this.bufferCtx;
   this.mask.onload = function () {
-    if(this.ctx) {
+    if (this.ctx) {
       this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
     }
   }
@@ -150,13 +150,14 @@ CanvasState.prototype.addMask = function (shape) {
   this.masks.push(shape);
   var imgBuffer = 20;
   var bufferCtx = this.bufferCtx;
+  var zoom = this.ZoomFactor;
 
   bufferCtx.globalCompositeOperation = 'source-over';
   bufferCtx.fillStyle = this.maskFill;
   bufferCtx.fillRect(-1 * imgBuffer, -1 * imgBuffer, this.buffer.width + (imgBuffer * 2), this.buffer.height + (imgBuffer * 2));
   bufferCtx.globalCompositeOperation = 'destination-out';
   for (var i = 0; i < this.masks.length; i++) {
-    this.masks[i].draw(bufferCtx);
+    this.masks[i].draw(bufferCtx, zoom);
   }
   //bufferCtx.filter = 'blur(14px)';
 
@@ -339,13 +340,17 @@ function MouseUp(e, myState) {
 }
 function MouseWheel(e, myState) {
   if (e.deltaY < 0) {
-    console.log('scrolling up');
-    myState.ZoomFactor *= 1.2;
+    factor = 1.2;
   }
-  if (e.deltaY > 0) {
-    console.log('scrolling down');
-    myState.ZoomFactor *= .8;
+  else {
+    factor = .8;
   }
+
+  myState.ZoomFactor *= factor;
+  var map = myState.shapes[0];
+  map.x = map.x * factor - e.x * (factor - 1);
+  map.y = map.y * factor - (e.y - myState.canvas.offsetTop) * (factor - 1);
+
   myState.valid = false; // Something's dragging so we must redraw
 }
 
