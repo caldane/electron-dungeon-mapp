@@ -77,6 +77,16 @@ function CanvasState(canvas, buffer, backgroundFill, maskFill) {
   this.bufferCtx = buffer.getContext('2d');
   this.bufferCtx.filter = 'blur(14px)';
   this.ZoomFactor = 1;
+  this.freeDraw = {
+    flag: false,
+    dot_flag: false,
+    line_color: "black",
+    line_width: 2,
+    prevY: 0,
+    prevX: 0,
+    currX: 0,
+    currY: 0
+  }
   // This complicates things a little but but fixes mouse co-ordinate problems
   // when there's a border or padding. See getMouse for more detail
   var stylePaddingLeft, stylePaddingTop, styleBorderLeft, styleBorderTop;
@@ -114,7 +124,7 @@ function CanvasState(canvas, buffer, backgroundFill, maskFill) {
   this.dragoffy = 0;
 
   // **** Then events! ****
-  this.addEvents();
+  this.navEvents();
   // This is an example of a closure!
   // Right here "this" means the CanvasState. But we are making events on the Canvas itself,
   // and when the events are fired on the canvas the variable "this" is going to mean the canvas!
@@ -242,7 +252,9 @@ CanvasState.prototype.invalidate = function () {
   this.valid = false;
 }
 
-CanvasState.prototype.addEvents = function () {
+CanvasState.prototype.navEvents = function () {
+  this.eventsType = 'navigation';
+  this.removeEvents();
   canvas.addEventListener('selectstart', this);
   // Up, down, and move are for dragging
   canvas.addEventListener('mousedown', this);
@@ -256,31 +268,102 @@ CanvasState.prototype.removeEvents = function () {
   canvas.removeEventListener('mousedown', this);
   canvas.removeEventListener('mousemove', this);
   canvas.removeEventListener('mouseup', this);
+  canvas.removeEventListener("mouseout", this);
 }
 
+CanvasState.prototype.freeDrawEvents = function () {
+  this.eventsType = 'free-draw';
+  this.removeEvents();
+  canvas.addEventListener("mousemove", this);
+  canvas.addEventListener("mousedown", this);
+  canvas.addEventListener("mouseup", this);
+  canvas.addEventListener("mouseout", this);
+}
 
 CanvasState.prototype.handleEvent = function (e) {
-  switch (e.type) {
-    case 'selectstart': {
+  switch (this.eventsType + "-" + e.type) {
+    case 'navigation-selectstart': {
       e.preventDefault();
       return false;
     }
-    case 'mousedown':
+    case 'navigation-mousedown':
       MouseDown(e, this);
       break;
 
-    case 'mousemove':
+    case 'navigation-mousemove':
       MouseMove(e, this);
       break;
 
-    case 'mouseup':
+    case 'navigation-mouseup':
       MouseUp(e, this);
       break;
 
-    case 'wheel':
+    case 'navigation-wheel':
       MouseWheel(e, this);
       break;
+
+    case 'free-draw-mousemove':
+      findxy('move', e, this);
+      break;
+
+    case 'free-draw-mousedown':
+      findxy('down', e, this);
+      break;
+
+    case 'free-draw-mouseout':
+      findxy('out', e, this);
+      break;
+
+    case 'free-draw-mouseup':
+      findxy('up', e, this);
+      break;
   }
+}
+
+function findxy(res, e, myState) {
+  var ctx = myState.ctx;
+  var canvas = myState.canvas;
+  var currX = myState.freeDraw.currX;
+  var currY = myState.freeDraw.currY;
+
+  if (res == 'down') {
+    myState.freeDraw.prevX = currX;
+    myState.freeDraw.prevY = currY;
+    myState.freeDraw.currX = e.clientX - canvas.offsetLeft;
+    myState.freeDraw.currY = e.clientY - canvas.offsetTop;
+
+    myState.freeDraw.flag = true;
+    myState.freeDraw.dot_flag = true;
+    if (myState.freeDraw.dot_flag) {
+      ctx.beginPath();
+      ctx.fillStyle = x;
+      ctx.fillRect(currX, currY, 2, 2);
+      ctx.closePath();
+      myState.freeDraw.dot_flag = false;
+    }
+  }
+  if (res == 'up' || res == "out") {
+    myState.freeDraw.flag = false;
+  }
+  if (res == 'move') {
+    if (myState.freeDraw.flag) {
+      myState.freeDraw.prevY = currY;
+      myState.freeDraw.prevX = currX;
+      myState.freeDraw.currX = e.clientX - canvas.offsetLeft;
+      myState.freeDraw.currY = e.clientY - canvas.offsetTop;
+      drawLine(ctx, myState.freeDraw);
+    }
+  }
+}
+
+function drawLine(ctx, freeDraw) {
+  ctx.beginPath();
+  ctx.moveTo(freeDraw.prevX, freeDraw.prevY);
+  ctx.lineTo(freeDraw.currX, freeDraw.currY);
+  ctx.strokeStyle = freeDraw.line_color;
+  ctx.lineWidth = freeDraw.line_width;
+  ctx.stroke();
+  ctx.closePath();
 }
 
 // If you dont want to use <body onLoad='init()'>
@@ -339,12 +422,7 @@ function MouseUp(e, myState) {
   myState.dragging = false;
 }
 function MouseWheel(e, myState) {
-  if (e.deltaY < 0) {
-    factor = 1.2;
-  }
-  else {
-    factor = .8;
-  }
+  const factor = e.deltaY < 0 ? 1.2 : .8;
 
   myState.ZoomFactor *= factor;
   var map = myState.shapes[0];
@@ -358,8 +436,8 @@ function MouseWheel(e, myState) {
 exports.init = init;
 
 exports.drawMode = function () {
-  this.canvasState.removeEvents();
+  this.canvasState.freeDrawEvents();
 }
 exports.navigateMode = function () {
-  this.canvasState.addEvents();
+  this.canvasState.navEvents();
 }
