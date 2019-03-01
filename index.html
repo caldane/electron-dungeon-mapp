@@ -5,10 +5,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hello World!</title>
-  <link rel="stylesheet" type="text/css" href="./assets/css/site.css">
   <link href="https://fonts.googleapis.com/css?family=Montserrat" rel="stylesheet">
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
   <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+  <link rel="stylesheet" type="text/css" href="./assets/css/site.css">
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
 </head>
 
@@ -47,7 +47,7 @@
   </div>
 
   <script>window.$ = window.jQuery = require('jquery');</script>
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdbootstrap/4.7.1/js/mdb.min.js"></script>
+  
   <script>
     // You can also require other files to run in this process
     require('./renderer.js');
@@ -93,9 +93,9 @@
     img.onload = function () {
       cvState = shapes.init(canvas, img, document.createElement('canvas'));
       cvState.invalidate();
+      setTimeout(() => {$("#btn-bar").css('visibility', 'visible')}, 10);
     }
     img.src = './assets/img/dungeon.png';
-
   </script>
 </body>
 

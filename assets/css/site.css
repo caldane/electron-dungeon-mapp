@@ -55,11 +55,25 @@ body {
 
 #btn-bar {
     height: 3rem;
+    visibility: hidden;
+    padding: 0.32em;    
+}
+
+#btn-bar div {
+    display: inline-block;
+}
+
+#btn-bar div label {
+    border: 1px solid #8f8f8f;
+    border-radius: 5px;
+}
+#btn-bar div label:hover {
+    background-color: rgba(125, 205, 255, .5);
 }
 
 main {
     display: grid;
-    grid-template-columns: 4fr 1fr;
+    grid-template-columns: 5fr 1fr;
 }
 
 main canvas {

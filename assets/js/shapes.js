@@ -115,6 +115,8 @@ function CanvasState(canvas, buffer, backgroundFill, maskFill) {
     }
   }
 
+  this.mouse = null;
+
   this.backgroundFill = backgroundFill;
   this.maskFill = maskFill;
   this.dragging = false; // Keep track of when we are dragging
@@ -217,6 +219,11 @@ CanvasState.prototype.draw = function () {
     }
 
     // ** Add stuff you want drawn on top all the time here **
+    if (this.mouse !== null) {
+      ctx.beginPath();
+      ctx.arc(this.mouse.x, this.mouse.y, 12, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
 
     this.valid = true;
   }
@@ -228,23 +235,10 @@ CanvasState.prototype.draw = function () {
 CanvasState.prototype.getMouse = function (e) {
   var element = this.canvas, offsetX = 0, offsetY = 0, mx, my;
 
-  // Compute the total offset
-  if (element.offsetParent !== undefined) {
-    do {
-      offsetX += element.offsetLeft;
-      offsetY += element.offsetTop;
-    } while ((element = element.offsetParent));
-  }
-
-  // Add padding and border style widths to offset
-  // Also add the <html> offsets in case there's a position:fixed bar
-  offsetX += this.stylePaddingLeft + this.styleBorderLeft + this.htmlLeft;
-  offsetY += this.stylePaddingTop + this.styleBorderTop + this.htmlTop;
-
-  mx = e.pageX - offsetX;
+  offsetY = element.getBoundingClientRect().top;
+  mx = e.pageX * 1.2;
   my = e.pageY - offsetY;
 
-  // We return a simple javascript object (a hash) with x and y defined
   return { x: mx, y: my };
 }
 
@@ -264,6 +258,7 @@ CanvasState.prototype.navEvents = function () {
 }
 
 CanvasState.prototype.removeEvents = function () {
+  this.mouse = null;
   canvas.removeEventListener('selectstart', this);
   canvas.removeEventListener('mousedown', this);
   canvas.removeEventListener('mousemove', this);
@@ -322,21 +317,21 @@ CanvasState.prototype.handleEvent = function (e) {
 
 function findxy(res, e, myState) {
   var ctx = myState.ctx;
-  var canvas = myState.canvas;
+  var mouse = myState.getMouse(e);
   var currX = myState.freeDraw.currX;
   var currY = myState.freeDraw.currY;
 
   if (res == 'down') {
     myState.freeDraw.prevX = currX;
     myState.freeDraw.prevY = currY;
-    myState.freeDraw.currX = e.clientX - canvas.offsetLeft;
-    myState.freeDraw.currY = e.clientY - canvas.offsetTop;
+    myState.freeDraw.currX = mouse.x;
+    myState.freeDraw.currY = mouse.y;
 
     myState.freeDraw.flag = true;
     myState.freeDraw.dot_flag = true;
     if (myState.freeDraw.dot_flag) {
       ctx.beginPath();
-      ctx.fillStyle = x;
+      ctx.fillStyle = myState.freeDraw.line_width;
       ctx.fillRect(currX, currY, 2, 2);
       ctx.closePath();
       myState.freeDraw.dot_flag = false;
@@ -349,9 +344,12 @@ function findxy(res, e, myState) {
     if (myState.freeDraw.flag) {
       myState.freeDraw.prevY = currY;
       myState.freeDraw.prevX = currX;
-      myState.freeDraw.currX = e.clientX - canvas.offsetLeft;
-      myState.freeDraw.currY = e.clientY - canvas.offsetTop;
+      myState.freeDraw.currX = mouse.x;
+      myState.freeDraw.currY = mouse.y;
       drawLine(ctx, myState.freeDraw);
+    } else {
+      myState.mouse = myState.getMouse(e);
+      myState.valid = false;
     }
   }
 }
