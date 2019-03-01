@@ -236,7 +236,7 @@ CanvasState.prototype.getMouse = function (e) {
   var element = this.canvas, offsetX = 0, offsetY = 0, mx, my;
 
   offsetY = element.getBoundingClientRect().top;
-  mx = e.pageX * 1.2;
+  mx = e.pageX;// * 1.2;
   my = e.pageY - offsetY;
 
   return { x: mx, y: my };
@@ -322,6 +322,9 @@ function findxy(res, e, myState) {
   var currY = myState.freeDraw.currY;
 
   if (res == 'down') {
+    if (e.which == 2) {
+      MouseDown(e, myState);
+    }
     myState.freeDraw.prevX = currX;
     myState.freeDraw.prevY = currY;
     myState.freeDraw.currX = mouse.x;
@@ -338,15 +341,23 @@ function findxy(res, e, myState) {
     }
   }
   if (res == 'up' || res == "out") {
+    if (e.which == 2) {
+      MouseUp(e, myState);
+    }
     myState.freeDraw.flag = false;
   }
   if (res == 'move') {
-    if (myState.freeDraw.flag) {
-      myState.freeDraw.prevY = currY;
-      myState.freeDraw.prevX = currX;
-      myState.freeDraw.currX = mouse.x;
-      myState.freeDraw.currY = mouse.y;
-      drawLine(ctx, myState.freeDraw);
+    if (e.which == 2) {
+      MouseMove(e, myState);
+    }
+    if (e.which == 1) {
+      if (myState.freeDraw.flag) {
+        myState.freeDraw.prevY = currY;
+        myState.freeDraw.prevX = currX;
+        myState.freeDraw.currX = mouse.x;
+        myState.freeDraw.currY = mouse.y;
+        drawLine(ctx, myState.freeDraw);
+      }
     } else {
       myState.mouse = myState.getMouse(e);
       myState.valid = false;
@@ -355,6 +366,7 @@ function findxy(res, e, myState) {
 }
 
 function drawLine(ctx, freeDraw) {
+
   ctx.beginPath();
   ctx.moveTo(freeDraw.prevX, freeDraw.prevY);
   ctx.lineTo(freeDraw.currX, freeDraw.currY);
