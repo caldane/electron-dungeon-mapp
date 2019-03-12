@@ -26,32 +26,32 @@
     </header>
     <div id="btn-bar">
       <div id="os-btns">
-        <label class="mdl-button mdl-js-ripple-effect mdl-js-button mdl-button--fab"
-          title="Open Image" onclick="openFile()">
+        <label class="mdl-button mdl-js-ripple-effect mdl-js-button mdl-button--fab" title="Open Image"
+          onclick="openFile()">
           <i class="material-icons">image_search</i>
         </label>
-        <label class="mdl-button mdl-js-ripple-effect mdl-js-button mdl-button--fab" 
-          title="Launch Player View Window" onclick="launchPreview()">
+        <label class="mdl-button mdl-js-ripple-effect mdl-js-button mdl-button--fab" title="Launch Player View Window"
+          onclick="launchPreview()">
           <i class="material-icons">filter</i>
         </label>
-        <label class="mdl-button mdl-js-ripple-effect mdl-js-button mdl-button--fab" 
-          title="Update Player View Windows" onclick="updatePreview()">
+        <label class="mdl-button mdl-js-ripple-effect mdl-js-button mdl-button--fab"
+          title="Update Player View Windows (Spacebar)" onclick="updatePreview()">
           <i class="material-icons">photo_filter</i>
         </label>
       </div>
       <div id="nav-modes">
         <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect is-checked" for="icon-toggle-1"
-          title="Move Tool" onclick="navMode('nav')">
+          title="Move Tool (V)" onclick="navMode('nav')">
           <input type="radio" id="icon-toggle-1" name="mouse-mode" class="mdl-icon-toggle__input" value="navigate">
           <i class="mdl-icon-toggle__label material-icons">pan_tool</i>
         </label>
         <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="icon-toggle-2"
-          title="Freehand Polygon Tool" onclick="navMode('gesture')">
+          title="Freehand Polygon Tool (B)" onclick="navMode('gesture')">
           <input type="radio" id="icon-toggle-2" name="mouse-mode" class="mdl-icon-toggle__input" value="draw">
           <i class="mdl-icon-toggle__label material-icons">gesture</i>
         </label>
         <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="icon-toggle-3"
-          title="Brush Tool" onclick="navMode('brush')">
+          title="Brush Tool (B)" onclick="navMode('brush')">
           <input type="radio" id="icon-toggle-3" name="mouse-mode" class="mdl-icon-toggle__input" value="draw">
           <i class="mdl-icon-toggle__label material-icons">brush</i>
         </label>
@@ -72,6 +72,7 @@
     require('./renderer.js');
     const electron = require('electron');
     const { ipcRenderer } = electron;
+    const { dialog } = electron.remote;
     var shapes = require('./assets/js/shapes.js');
     var mouseMode = 'nav';
 
@@ -99,6 +100,10 @@
         case 19:    //Pause/Break
         case 20:    //Caps Lock
         case 27:    //Escape
+          break;
+        case 32:    //Space
+          updatePreview();
+          break;
         case 35:    //End
         case 36:    //Home
         case 37:    //Left
@@ -117,8 +122,7 @@
 
         case 66:
         case 98:
-          if(mouseMode === "gesture")
-          {
+          if (mouseMode === "gesture") {
             navMode('brush');
           } else {
             navMode('gesture');
@@ -140,6 +144,16 @@
     }
     function closeWindow() {
       ipcRenderer.send('quit');
+    }
+    function openFile() {
+      dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [ { name: 'Images', extensions: ['jpg', 'png', 'gif'] }]
+      }, function (files) {
+        if (files !== undefined) {
+          img.src = files[0];
+        }
+      });
     }
     function launchPreview() {
       ipcRenderer.send('new-child-window', img.src);
@@ -166,12 +180,9 @@
       }
     }
 
-    ipcRenderer.on('child-canvas-init', function(){
+    ipcRenderer.on('child-canvas-init', function () {
       let img = shapes.maskData("black");
       ipcRenderer.send('set-child-mask', img);
-      shapes.maskData("#2361c080");
-      shapes.maskData("#2361c080");
-      shapes.invalidate();
     });
 
     resizeCanvas();
