@@ -11,7 +11,7 @@ body {
 .container {
     height: 100%;
     display: grid;
-    grid-template-rows: 34px 3rem auto;
+    grid-template-rows: 34px 3.3rem auto;
 }
 
 .container header {
@@ -66,9 +66,28 @@ body {
 #btn-bar div label {
     border: 1px solid #8f8f8f;
     border-radius: 5px;
+    height: 36px;
+    width: 35px;
+    min-width: 36px;
 }
 #btn-bar div label:hover {
     background-color: rgba(125, 205, 255, .5);
+}
+
+#btn-bar > div {
+    padding: 0 1em;
+    border-right: solid rgba(0,0,0,.5) 1px;
+}
+
+#btn-bar > div:first-child {
+    padding-left: 0;
+}
+#btn-bar > div:last-child {
+    border: none;
+}
+
+#btn-bar .mdl-icon-toggle__label.material-icons {
+    padding-top: 2px;
 }
 
 main {

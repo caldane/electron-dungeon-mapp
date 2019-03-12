@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hello World!</title>
+  <title>DungeonMapp!</title>
   <link href="https://fonts.googleapis.com/css?family=Montserrat" rel="stylesheet">
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
   <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
@@ -12,11 +12,11 @@
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
 </head>
 
-<body onresize="resizeCanvas()">
+<body onresize="resizeCanvas()" onkeypress="handleKeys(event)">
   <div class="container">
 
     <header>
-      <strong><span>Dungeon</span>Map</strong>
+      <strong><span>Dungeon</span>Mapp</strong>
       <nav>
         <ul>
           <li onclick="minimizeWindow()"><img src="./assets/img/btn-min.svg"></li>
@@ -25,15 +25,34 @@
       </nav>
     </header>
     <div id="btn-bar">
+      <div id="os-btns">
+        <label class="mdl-button mdl-js-ripple-effect mdl-js-button mdl-button--fab"
+          title="Open Image" onclick="openFile()">
+          <i class="material-icons">image_search</i>
+        </label>
+        <label class="mdl-button mdl-js-ripple-effect mdl-js-button mdl-button--fab" 
+          title="Launch Player View Window" onclick="launchPreview()">
+          <i class="material-icons">filter</i>
+        </label>
+        <label class="mdl-button mdl-js-ripple-effect mdl-js-button mdl-button--fab" 
+          title="Update Player View Windows" onclick="updatePreview()">
+          <i class="material-icons">photo_filter</i>
+        </label>
+      </div>
       <div id="nav-modes">
-        <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="icon-toggle-1"
-          onclick="navMode('nav')">
+        <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect is-checked" for="icon-toggle-1"
+          title="Move Tool" onclick="navMode('nav')">
           <input type="radio" id="icon-toggle-1" name="mouse-mode" class="mdl-icon-toggle__input" value="navigate">
           <i class="mdl-icon-toggle__label material-icons">pan_tool</i>
         </label>
         <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="icon-toggle-2"
-          onclick="navMode('draw')">
+          title="Freehand Polygon Tool" onclick="navMode('gesture')">
           <input type="radio" id="icon-toggle-2" name="mouse-mode" class="mdl-icon-toggle__input" value="draw">
+          <i class="mdl-icon-toggle__label material-icons">gesture</i>
+        </label>
+        <label class="mdl-icon-toggle mdl-js-icon-toggle mdl-js-ripple-effect" for="icon-toggle-3"
+          title="Brush Tool" onclick="navMode('brush')">
+          <input type="radio" id="icon-toggle-3" name="mouse-mode" class="mdl-icon-toggle__input" value="draw">
           <i class="mdl-icon-toggle__label material-icons">brush</i>
         </label>
       </div>
@@ -47,13 +66,14 @@
   </div>
 
   <script>window.$ = window.jQuery = require('jquery');</script>
-  
+
   <script>
     // You can also require other files to run in this process
     require('./renderer.js');
     const electron = require('electron');
     const { ipcRenderer } = electron;
     var shapes = require('./assets/js/shapes.js');
+    var mouseMode = 'nav';
 
     function resizeCanvas() {
       /// now use this as width and height for your canvas element:
@@ -68,32 +88,99 @@
         cvState.invalidate();
       }
     }
+
+    function handleKeys(e) {
+      var key = event.which || event.keyCode;
+      switch (key) {
+        case 13:    //Enter
+        case 16:    //Shift
+        case 17:    //Ctrl
+        case 18:    //Alt
+        case 19:    //Pause/Break
+        case 20:    //Caps Lock
+        case 27:    //Escape
+        case 35:    //End
+        case 36:    //Home
+        case 37:    //Left
+        case 38:    //Up
+        case 39:    //Right
+        case 40:    //Down   
+          break;
+
+        case 72:
+        case 86:
+        case 104:
+        case 118:
+          navMode('nav');
+          cvState.invalidate();
+          break;
+
+        case 66:
+        case 98:
+          if(mouseMode === "gesture")
+          {
+            navMode('brush');
+          } else {
+            navMode('gesture');
+          }
+          cvState.invalidate();
+          break;
+
+        case 91:
+          shapes.brushSizeDown();
+          break;
+        case 93:
+          shapes.brushSizeUp();
+          break;
+      }
+    }
+
     function minimizeWindow() {
       ipcRenderer.send('minimize');
     }
     function closeWindow() {
       ipcRenderer.send('quit');
     }
+    function launchPreview() {
+      ipcRenderer.send('new-child-window', img.src);
+    }
+    function updatePreview() {
+      let img = shapes.maskData("black");
+      ipcRenderer.send('set-child-mask', img);
+    }
     function navMode(mode) {
-      var radios = $("#nav-modes .is-checked");
-      for (var i = 0; i < radios.length; i++) {
-        var radio = radios[i];
-        radio.classList.remove("is-checked");
-      }
-      if (mode == 'nav') {
-        shapes.navigateMode();
-      } else if (mode == 'draw') {
-        shapes.drawMode();
+      if (mode != mouseMode) {
+        var radios = $("#nav-modes .is-checked");
+        for (var i = 0; i < radios.length; i++) {
+          var radio = radios[i];
+          radio.classList.remove("is-checked");
+        }
+        if (mode == 'nav') {
+          shapes.navigateMode();
+        } else if (mode == 'gesture') {
+          shapes.drawMode('polygon');
+        } else if (mode == 'brush') {
+          shapes.drawMode('brush');
+        }
+        mouseMode = mode;
       }
     }
 
+    ipcRenderer.on('child-canvas-init', function(){
+      let img = shapes.maskData("black");
+      ipcRenderer.send('set-child-mask', img);
+      shapes.maskData("#2361c080");
+      shapes.maskData("#2361c080");
+      shapes.invalidate();
+    });
+
     resizeCanvas();
-    var img = new Image();
+    let img = new Image();
     var cvState;
     img.onload = function () {
       cvState = shapes.init(canvas, img, document.createElement('canvas'));
       cvState.invalidate();
-      setTimeout(() => {$("#btn-bar").css('visibility', 'visible')}, 10);
+      setTimeout(() => { $("#btn-bar").css('visibility', 'visible') }, 10);
     }
     img.src = './assets/img/dungeon.png';
   </script>

@@ -1,0 +1,10 @@
+directories:
+  output: bin
+  buildResources: build
+appId: com.caldane.app
+productName: Dungeon Mapp
+target: NSIS
+nsis:
+  allowToChangeInstallationDirectory: true
+  oneClick: false
+electronVersion: 4.0.3
