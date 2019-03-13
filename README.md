@@ -1,8 +1,8 @@
-# electron-quick-start
+# electron-dungeon-mapp
 
-**Clone and run for a quick way to see Electron in action.**
+**A map tool for game masters to make any image into a fog of war image.**
 
-This is a minimal Electron application based on the [Quick Start Guide](https://electronjs.org/docs/tutorial/quick-start) within the Electron documentation.
+This is an Electron application for game masters to show game maps to their players with fog of war.
 
 **Use this app along with the [Electron API Demos](https://electronjs.org/#get-started) app for API code examples to help you get started.**
 
@@ -20,9 +20,9 @@ To clone and run this repository you'll need [Git](https://git-scm.com) and [Nod
 
 ```bash
 # Clone this repository
-git clone https://github.com/electron/electron-quick-start
+git clone https://github.com/caldane/electron-dungeon-mapp.git
 # Go into the repository
-cd electron-quick-start
+cd electron-dungeon-mapp
 # Install dependencies
 npm install
 # Run the app
