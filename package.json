@@ -10,11 +10,11 @@
     "dist": "electron-builder"
   },
   "keywords": [
-    "Electron",
-    "quick",
-    "start",
-    "tutorial",
-    "demo"
+    "Image",
+    "Dungeons and Dragons",
+    "DnD",
+    "Fog of War",
+    "Maps"
   ],
   "devDependencies": {
     "electron": "^4.0.3",
@@ -29,13 +29,40 @@
   "build": {
     "appId": "com.caldane.app",
     "productName": "Dungeon Mapp",
-    "target": "NSIS",
-    "directories": {
-      "output": "bin"
+    "mac": {
+      "category": "public.app-category.graphics-design"
     },
-    "nsis": {
-      "allowToChangeInstallationDirectory": true,
-      "oneClick": false
+    "dmg": {
+      "contents": [
+        {
+          "x": 110,
+          "y": 150
+        },
+        {
+          "x": 240,
+          "y": 150,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "win": {
+      "target": "NSIS",
+      "icon": "build/icon.ico",
+      "directories": {
+        "output": "bin"
+      },
+      "nsis": {
+        "allowToChangeInstallationDirectory": true,
+        "oneClick": false
+      }
+    },
+    "linux": {
+      "category": "Graphics",
+      "target": [
+        "AppImage",
+        "deb"
+      ]
     }
   }
 }
