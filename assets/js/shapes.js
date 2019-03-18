@@ -109,16 +109,15 @@ Shape.prototype.contains = function (mx, my) {
     (this.y <= my) && (this.y + this.h >= my);
 }
 
-function CanvasState(canvas, buffer, backgroundFill, maskFill) {
+function CanvasState(canvas, backgroundFill, maskFill) {
   // **** First some setup! ****
 
   this.canvas = canvas;
   this.width = canvas.width;
   this.height = canvas.height;
   this.ctx = canvas.getContext('2d');
-  this.buffer = buffer;
-  this.bufferCtx = buffer.getContext('2d');
-  this.bufferCtx.filter = 'blur(14px)';
+  this.buffer = null;
+  this.bufferCtx = null;
   this.ZoomFactor = 1;
   this.freeDraw = {
     line_color: "rgba(0,0,0,.5)",
@@ -127,7 +126,10 @@ function CanvasState(canvas, buffer, backgroundFill, maskFill) {
     lastDraw: { x: 0, y: 0 },
     lines: []
   }
+
   this.worldSpace = { x: 0, y: 0 };
+  this.mapImage = new Image();
+
   // This complicates things a little but but fixes mouse co-ordinate problems
   // when there's a border or padding. See getMouse for more detail
   var stylePaddingLeft, stylePaddingTop, styleBorderLeft, styleBorderTop;
@@ -221,6 +223,8 @@ CanvasState.prototype.draw = function () {
     var shapes = this.shapes;
     this.clear();
     var zoom = this.ZoomFactor;
+    let ws = this.worldSpace;
+    let map = this.mapImage;
 
     // ** Add stuff you want drawn in the background all the time here **
     if (this.backgroundFill !== null) {
@@ -228,16 +232,18 @@ CanvasState.prototype.draw = function () {
       ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     }
 
+    ctx.drawImage(map, ws.x, ws.y, map.width * zoom, map.height * zoom);
+
     // draw all shapes
     for (var i = 0; i < shapes.length; i++) {
       shapes[i].draw(ctx, this);
     }
 
     if (this.maskFill !== null) {
-      if(this.mask.src) {
+      if (this.mask.src) {
         ctx.drawImage(this.mask, shapes[0].x, shapes[0].y, shapes[0].w * zoom, shapes[0].h * zoom);
       } else {
-        let fill = shapes[0];
+        let fill = { x: ws.x, y: ws.y, w: map.width * zoom, h: map.height * zoom };
         ctx.fillStyle = this.maskFill;
         ctx.fillRect(fill.x, fill.y, fill.w * zoom, fill.h * zoom);
       }
@@ -261,7 +267,7 @@ CanvasState.prototype.draw = function () {
       ctx.beginPath();
       ctx.arc(this.mouse.x, this.mouse.y, this.freeDraw.line_width / 2, 0, 2 * Math.PI);
       ctx.stroke();
-      if(this.freeDraw.type === "polygon") {
+      if (this.freeDraw.type === "polygon") {
         ctx.fillStyle = this.freeDraw.fill_color;
         ctx.fill();
       }
@@ -403,7 +409,7 @@ function findxy(res, e, myState) {
       MouseUp(e, myState);
     } else if (e.which == 1) {
       let points = [];
-      for(var i =0; i < myState.freeDraw.lines.length; i++) {
+      for (var i = 0; i < myState.freeDraw.lines.length; i++) {
         points.push(myState.screenToWorldSpace(myState.freeDraw.lines[i]));
       }
       if (myState.freeDraw.type === 'brush') {
@@ -463,13 +469,10 @@ function drawLine(ctx, freeDraw) {
 // You could uncomment this init() reference and place the script reference inside the body tag
 //init();
 
-function init(canvas, img, buffer, backgroundFill, maskFill) {
-  buffer.height = img.height;
-  buffer.width = img.width;
-  var s = new CanvasState(canvas, buffer, backgroundFill || '#656565', maskFill || '#2361c080');
+function init(canvas, backgroundFill, maskFill) {
+  var s = new CanvasState(canvas, backgroundFill || '#656565', maskFill || '#2361c080');
   this.canvasState = s;
   console.log('fetching canvas');
-  s.addImage(new Bitmap(img, 0, 0));
   s.invalidate();
   return s;
 }
@@ -480,14 +483,20 @@ function MouseDown(e, myState) {
   var my = mouse.y;
   var shapes = myState.shapes;
   var l = shapes.length;
+  let ws = myState.worldSpace;
+
+  myState.dragoffx = mx - ws.x;
+  myState.dragoffy = my - ws.y;
+  myState.dragging = true;
+
   for (var i = l - 1; i >= 0; i--) {
     if (shapes[i].contains(mx, my)) {
       var mySel = shapes[i];
       // Keep track of where in the object we clicked
       // so we can move it smoothly (see mousemove)
+
       myState.dragoffx = mx - mySel.x;
       myState.dragoffy = my - mySel.y;
-      myState.dragging = true;
       myState.selection = mySel;
       myState.valid = false;
       return;
@@ -507,8 +516,13 @@ function MouseMove(e, myState) {
 
     // We don't want to drag the object by its top-left corner, we want to drag it
     // from where we clicked. Thats why we saved the offset and use it here
-    myState.selection.x = mouse.x - myState.dragoffx;
-    myState.selection.y = mouse.y - myState.dragoffy;
+    if (myState.selection !== null) {
+      myState.selection.x = mouse.x - myState.dragoffx;
+      myState.selection.y = mouse.y - myState.dragoffy;
+
+    } else {
+      myState.worldSpace = { x: mouse.x - myState.dragoffx, y: mouse.y - myState.dragoffy };
+    }
     myState.valid = false; // Something's dragging so we must redraw
   }
 }
@@ -567,4 +581,11 @@ exports.maskData = function (color) {
 exports.setMask = function (img) {
   this.canvasState.mask.src = img;
   this.canvasState.invalidate();
+}
+
+exports.setMapp = function (img) {
+  this.canvasState.buffer.height = img.height;
+  this.canvasState.buffer.width = img.width;
+  this.canvasState.mapImage = img;
+  this.canvasState.valid = false;
 }

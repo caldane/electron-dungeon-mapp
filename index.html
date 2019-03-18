@@ -187,9 +187,17 @@
 
     resizeCanvas();
     let img = new Image();
-    var cvState;
+    var cvState = shapes.init(canvas);
     img.onload = function () {
-      cvState = shapes.init(canvas, img, document.createElement('canvas'));
+      let buffer = document.createElement('canvas');
+      buffer.width = img.width;
+      buffer.height = img.height;
+      cvState.buffer = buffer;
+      cvState.buffer = buffer;
+      cvState.bufferCtx = buffer.getContext('2d');
+      cvState.bufferCtx.filter = 'blur(14px)';
+
+      cvState.mapImage = img;
       cvState.invalidate();
       setTimeout(() => { $("#btn-bar").css('visibility', 'visible') }, 10);
     }
