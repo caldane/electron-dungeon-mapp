@@ -61,7 +61,9 @@
       <canvas id="canvas" width="400" height="300">
         This text is displayed if your browser does not support HTML5 Canvas.
       </canvas>
-
+      <canvas id="buffer" width="400" height="300">
+        This text is displayed if your browser does not support HTML5 Canvas.
+      </canvas>
     </main>
   </div>
 
@@ -79,12 +81,13 @@
     function resizeCanvas() {
       /// now use this as width and height for your canvas element:
       var canvas = document.getElementById('canvas');
+      var buffer = document.getElementById('buffer');
       var cs = getComputedStyle(canvas.parentElement);
       var width = parseInt(cs.getPropertyValue('width'), 10);
       var height = parseInt(cs.getPropertyValue('height'), 10);
 
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = buffer.width = width;
+      canvas.height = buffer.height = height / 2;
       if (cvState !== undefined && cvState !== null) {
         cvState.invalidate();
       }
@@ -188,8 +191,9 @@
     resizeCanvas();
     let img = new Image();
     var cvState = shapes.init(canvas);
+    var canvasBuffer = buffer;
     img.onload = function () {
-      let buffer = document.createElement('canvas');
+      let buffer = canvasBuffer;
       buffer.width = img.width;
       buffer.height = img.height;
       cvState.buffer = buffer;

@@ -241,7 +241,7 @@ CanvasState.prototype.draw = function () {
 
     if (this.maskFill !== null) {
       if (this.mask.src) {
-        ctx.drawImage(this.mask, shapes[0].x, shapes[0].y, shapes[0].w * zoom, shapes[0].h * zoom);
+        ctx.drawImage(this.mask, ws.x, ws.y, map.width * zoom, map.height * zoom);
       } else {
         let fill = { x: ws.x, y: ws.y, w: map.width * zoom, h: map.height * zoom };
         ctx.fillStyle = this.maskFill;
@@ -295,10 +295,11 @@ CanvasState.prototype.getMouse = function (e) {
 }
 
 CanvasState.prototype.screenToWorldSpace = function (point) {
-  var img = this.shapes[0];
   var zoom = this.ZoomFactor;
-  if (!img) { return point; };
-  var coordinates = { x: (img.x / zoom * -1) + (point.x / zoom), y: (img.y / zoom * -1) + (point.y / zoom) };
+  let ws = this.worldSpace;
+
+  if (!this.mapImage) { return point; };
+  var coordinates = { x: (ws.x / zoom * -1) + (point.x / zoom), y: (ws.y / zoom * -1) + (point.y / zoom) };
   return coordinates;
 }
 
@@ -413,7 +414,8 @@ function findxy(res, e, myState) {
         points.push(myState.screenToWorldSpace(myState.freeDraw.lines[i]));
       }
       if (myState.freeDraw.type === 'brush') {
-        myState.addMask(new MultipointLine(points, "black", myState.freeDraw.line_width));
+        myState.mask.src = createMaskImage2(myState.buffer.toDataURL("image/png"), myState.maskFill);
+        //myState.addMask(new MultipointLine(points, "black", myState.freeDraw.line_width));
       } else if (myState.freeDraw.type === 'polygon') {
         myState.addMask(new Polygon(points, "black", myState.freeDraw.line_width));
       }
@@ -430,13 +432,16 @@ function findxy(res, e, myState) {
       var a = myState.freeDraw.lastDraw.x - mouse.x;
       var b = myState.freeDraw.lastDraw.y - mouse.y;
       var c = Math.sqrt(a * a + b * b);
-      if (c > (10)) {
+      if (myState.freeDraw.type === 'brush') {
         myState.freeDraw.lines.push({ x: mouse.x, y: mouse.y });
-        //drawLine(ctx, myState.freeDraw);
-        myState.freeDraw.lastDraw.x = mouse.x;
-        myState.freeDraw.lastDraw.y = mouse.y;
-        myState.valid = false;
+        drawArc(myState.bufferCtx, mouse, myState.freeDraw.line_width / 2);
+      } else if (myState.freeDraw.type === 'polygon') {
+        myState.freeDraw.lines.push({ x: mouse.x, y: mouse.y });
       }
+
+      myState.freeDraw.lastDraw.x = mouse.x;
+      myState.freeDraw.lastDraw.y = mouse.y;
+      myState.valid = false;
     } else {
       myState.mouse = myState.getMouse(e);
       myState.lastKnownMouse = myState.getMouse(e);
@@ -463,6 +468,53 @@ function drawLine(ctx, freeDraw) {
   if (freeDraw.type == "polygon") {
     ctx.fill(region);
   }
+}
+
+function drawArc(ctx, mouse, radius) {
+  ctx.moveTo(mouse.x, mouse.y);
+  ctx.fillStyle = "red";
+  ctx.arc(mouse.x, mouse.y, radius, 0, 2 * Math.PI);
+  ctx.fill();
+}
+
+function createMaskImage2(dataUri, fill_color) {
+  const parseDataUri = require('parse-data-uri');
+  const Color = require('color');
+  const PNG = require('pngjs').PNG;
+  let color = Color(fill_color);
+
+  let data = parseDataUri(dataUri);
+  // this section command generates error; comment the next two lines
+  // to avoid the error.
+  let out = PNG.sync.read(data.data);
+
+  for (let y = 0; y < out.height; y++) {
+    for (let x = 0; x < out.width; x++) {
+      let idx = (out.width * y + x) << 2;
+      let r = out.data[idx];
+      let g = out.data[idx + 1];
+      let b = out.data[idx + 2];
+
+      // invert color
+      out.data[idx] = color.object().r;
+      out.data[idx + 1] = color.object().g;
+      out.data[idx + 2] = color.object().b;
+
+      // and reduce opacity
+      out.data[idx + 3] = r + g + b === 0 ? color.alpha() : 0;
+    }
+  }
+
+  
+  let mypng = new PNG({
+    width: out.width,
+    height:out.height,
+    bitDepth: 8,
+    inputHasAlpha: true
+  })
+  mypng.buffer = out.data;
+  let response = mypng.pack();
+  return 'data:image/png;base64,' + response.buffer.toString('base64');
 }
 
 // If you dont want to use <body onLoad='init()'>
@@ -533,9 +585,9 @@ function MouseWheel(e, myState) {
   const factor = e.deltaY < 0 ? 1.2 : .8;
 
   myState.ZoomFactor *= factor;
-  var map = myState.shapes[0];
-  map.x = map.x * factor - e.x * (factor - 1);
-  map.y = map.y * factor - (e.y - myState.canvas.offsetTop) * (factor - 1);
+  let ws = this.worldSpace;
+  ws.x = ws.x * factor - e.x * (factor - 1);
+  ws.y = ws.y * factor - (e.y - myState.canvas.offsetTop) * (factor - 1);
 
   myState.valid = false;
 }

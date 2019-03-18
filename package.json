@@ -22,9 +22,11 @@
   },
   "dependencies": {
     "@material/icon-toggle": "^0.44.1",
+    "color": "^3.1.0",
     "jquery": "^3.3.1",
     "mdbootstrap": "^4.7.3",
     "npm": "^6.9.0",
+    "parse-data-uri": "^0.2.0",
     "pngjs": "^3.4.0"
   },
   "build": {
