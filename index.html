@@ -61,9 +61,6 @@
       <canvas id="canvas" width="400" height="300">
         This text is displayed if your browser does not support HTML5 Canvas.
       </canvas>
-      <canvas id="buffer" width="400" height="300">
-        This text is displayed if your browser does not support HTML5 Canvas.
-      </canvas>
     </main>
   </div>
 
@@ -77,17 +74,19 @@
     const { dialog } = electron.remote;
     var shapes = require('./assets/js/shapes.js');
     var mouseMode = 'nav';
+    let toolBuffer = document.createElement('canvas');
+    toolBuffer.name = "tool"
+
 
     function resizeCanvas() {
       /// now use this as width and height for your canvas element:
       var canvas = document.getElementById('canvas');
-      var buffer = document.getElementById('buffer');
       var cs = getComputedStyle(canvas.parentElement);
       var width = parseInt(cs.getPropertyValue('width'), 10);
       var height = parseInt(cs.getPropertyValue('height'), 10);
 
-      canvas.width = buffer.width = width;
-      canvas.height = buffer.height = height / 2;
+      canvas.width = toolBuffer.width = width;
+      canvas.height = toolBuffer.height = height;
       if (cvState !== undefined && cvState !== null) {
         cvState.invalidate();
       }
@@ -191,15 +190,29 @@
     resizeCanvas();
     let img = new Image();
     var cvState = shapes.init(canvas);
-    var canvasBuffer = buffer;
     img.onload = function () {
-      let buffer = canvasBuffer;
-      buffer.width = img.width;
-      buffer.height = img.height;
-      cvState.buffer = buffer;
+      
+      let buffer =  document.createElement('canvas');
+      buffer.width = img.width + (cvState.gutterSize * 2);
+      buffer.height = img.height + (cvState.gutterSize * 2);
+      buffer.name = "buffer";
       cvState.buffer = buffer;
       cvState.bufferCtx = buffer.getContext('2d');
       cvState.bufferCtx.filter = 'blur(14px)';
+
+      let mask = document.createElement('canvas');
+      mask.width = img.width + (cvState.gutterSize * 2);
+      mask.height = img.height + (cvState.gutterSize * 2);
+      mask.name = "mask";
+      cvState.mask.canvas = mask;
+      cvState.mask.ctx = mask.getContext('2d');
+      cvState.mask.ctx.fillRect(0, 0, mask.width, mask.height);
+      cvState.mask.ctx.globalCompositeOperation = 'destination-out';
+      cvState.createMaskImage2(cvState.mask.fill, cvState);
+
+      cvState.tool.buffer = toolBuffer;
+      cvState.tool.ctx = toolBuffer.getContext('2d');
+      cvState.tool.ctx.globalAlpha = .5;
 
       cvState.mapImage = img;
       cvState.invalidate();
