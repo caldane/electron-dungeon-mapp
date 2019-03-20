@@ -212,7 +212,8 @@
 
       cvState.tool.buffer = toolBuffer;
       cvState.tool.ctx = toolBuffer.getContext('2d');
-      cvState.tool.ctx.globalAlpha = .5;
+      //cvState.tool.ctx.globalAlpha = .5;
+      cvState.tool.ctx.save();
 
       cvState.mapImage = img;
       cvState.invalidate();

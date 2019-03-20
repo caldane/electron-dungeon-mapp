@@ -127,7 +127,7 @@ function CanvasState(canvas, backgroundFill, maskFill) {
   this.freeDraw = {
     line_color: "rgba(0,0,0,.5)",
     fill_color: "rgba(255,0,0,.5)",
-    line_width: 20,
+    line_width: 120,
     lastDraw: { x: 0, y: 0 },
     lines: []
   }
@@ -239,9 +239,12 @@ CanvasState.prototype.draw = function () {
     // draw current tool path
     if (tool.fill !== null) {
       if(tool.image.src && tool.isDrawing) {
-        ctx.drawImage(tool.image, 0,0);
+        ctx.globalCompositeOperation = "overlay";
+        ctx.drawImage(tool.image, 0 - gutter,0-gutter);
       }
     }
+
+    ctx.globalCompositeOperation = "source-over";
 
 
     // draw selection
@@ -422,6 +425,7 @@ function findxy(res, e, myState) {
     } else if (e.which == 1) {
       myState.freeDraw.lastDraw = mouse;
       myState.tool.isDrawing = true;
+      myState.tool.ctx.beginPath();
       //myState.freeDraw.lines.push(mouse);
     }
   }
@@ -440,9 +444,9 @@ function findxy(res, e, myState) {
         myState.addMask(new Polygon(points, "black", myState.freeDraw.line_width));
       }
       myState.freeDraw.flag = false;
-      console.log(myState.freeDraw.lines);
       myState.freeDraw.lines = [];
       myState.tool.isDrawing = false;
+      myState.tool.ctx.closePath();
       clearContext(myState.tool.ctx);
     }
   }
@@ -457,12 +461,12 @@ function findxy(res, e, myState) {
       var c = Math.sqrt(a * a + b * b);
       if (myState.freeDraw.type === 'brush') {
         if (c < myState.freeDraw.line_width / 2) {
-          drawMaskArc(myState.tool.ctx, mouse, myState.freeDraw.line_width / 2, "#000000ff");
-          drawMaskArc(myState.mask.ctx, mouse, myState.freeDraw.line_width / 2, "#000000ff");
+          drawMaskArc(myState.tool.ctx, mouse, myState.freeDraw.line_width / 2, "#333333ff");
+          drawMaskArc(myState.mask.ctx, myState.screenToWorldSpace(mouse), myState.freeDraw.line_width / 2, "#000000ff");
           myState.tool.image.src = myState.tool.buffer.toDataURL("image/png");
         } else {
-          drawMaskLine(myState.tool.ctx, lastDraw, mouse, myState.freeDraw.line_width, "#000000ff");
-          drawMaskLine(myState.mask.ctx, lastDraw, mouse, myState.freeDraw.line_width, "#000000ff");
+          drawMaskLine(myState.tool.ctx, lastDraw, mouse, myState.freeDraw.line_width, "#333333ff");
+          drawMaskLine(myState.mask.ctx, myState.screenToWorldSpace(lastDraw), myState.screenToWorldSpace(mouse), myState.freeDraw.line_width, "#000000ff");
         }
 
       } else if (myState.freeDraw.type === 'polygon') {
@@ -520,6 +524,7 @@ function drawMaskLine(ctx, point1, point2, line_width, fillStyle) {
 
 function clearContext(ctx) {
   ctx.globalCompositeOperation = "source-over";
+  ctx.fillRect(0,0,ctx.canvas.width, ctx.canvas.height);
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 }
 
