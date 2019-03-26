@@ -229,6 +229,14 @@ CanvasState.prototype.draw = function () {
       shapes[i].draw(ctx, this);
     }
 
+    if (this.freeDraw.lines.length > 0) {
+      clearContext(tool.ctx);
+      drawLine(tool.ctx, this.freeDraw);
+      tool.image.src = null;
+      tool.image.src = tool.buffer.toDataURL("image/png");
+      while(tool.image.src === null);
+    }
+
     // draw fog of war mask
     if (mask.fill !== null) {
       if (mask.image.src) {
@@ -268,10 +276,6 @@ CanvasState.prototype.draw = function () {
         ctx.fill();
       }
     }
-
-    // if (this.freeDraw.lines.length > 0) {
-    //   drawLine(ctx, this.freeDraw);
-    // }
 
     this.valid = true;
   }
@@ -426,7 +430,7 @@ function findxy(res, e, myState) {
       myState.freeDraw.lastDraw = mouse;
       myState.tool.isDrawing = true;
       myState.tool.ctx.beginPath();
-      //myState.freeDraw.lines.push(mouse);
+      myState.freeDraw.lines.push(mouse);
     }
   }
   if (res == 'up' || res == "out") {
@@ -468,9 +472,12 @@ function findxy(res, e, myState) {
           drawMaskLine(myState.tool.ctx, lastDraw, mouse, myState.freeDraw.line_width, "#333333ff");
           drawMaskLine(myState.mask.ctx, myState.screenToWorldSpace(lastDraw), myState.screenToWorldSpace(mouse), myState.freeDraw.line_width, "#000000ff");
         }
-
       } else if (myState.freeDraw.type === 'polygon') {
-        myState.freeDraw.lines.push({ x: mouse.x, y: mouse.y });
+        if(c > myState.freeDraw.line_width / 10) {
+          myState.freeDraw.lines.push({ x: mouse.x, y: mouse.y });
+          myState.valid = false;
+          console.log(mouse);
+        }
       }
 
       myState.freeDraw.lastDraw.x = mouse.x;
