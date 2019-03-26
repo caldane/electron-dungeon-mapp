@@ -58,25 +58,17 @@
     }
 
     function closeWindow() {
-      ipcRenderer.send('close-child-window', currentWindow.id);
+      ipcRenderer.send('close-child-window', currentWindow.guid, cvState.bufferCtx.name);
     }
 
     resizeCanvas();
-    var img = new Image();
-    var cvState;
-    img.onload = function () {
-      cvState = shapes.init(canvas, img, document.createElement('canvas'), '#656565', "black");
-      
-      cvState.invalidate();
-      ipcRenderer.send("canvas-init");
-    }
+    var cvState = shapes.init(currentWindow.id, canvas, '#656565', "black");
+    console.log("currentWindowImage: "+ currentWindow.img.src);
+    cvState.mapImage.src = currentWindow.img.src;
 
-    ipcRenderer.on("set-canvas-mask", function(event, maskImg) {
-      shapes.setMask(maskImg);
-      setTimeout(() => { $("main").css('visibility', 'visible') }, 10);
-    });
+    while(!cvState.bufferCtx);
+    ipcRenderer.send("canvas-init", cvState.bufferCtx);
 
-    img.src = currentWindow.img;
     
   </script>
 </body>

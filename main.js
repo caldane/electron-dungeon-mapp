@@ -31,6 +31,7 @@ function createWindow() {
 }
 
 function createChildWindow(img) {
+  const guid = require('uuid/v1');
   let childWindow = new BrowserWindow({
     width: 800,
     height: 600,
@@ -39,12 +40,18 @@ function createChildWindow(img) {
 
   childWindow.loadFile('canvas.html');
   childWindow.on('closed', function () {
+    console.log('Child window closed: ' + childWindow.guid);
+    for (let i = 0; i < childWindows.length; i++) {
+      if (childWindows[i].guid === childWindow.guid) {
+        childWindows.splice(i, 1);
+      }
+    }
     childWindow = null;
   });
-  var r = (new Date()).getTime().toString(16) +
-    Math.random().toString(16).substring(2) + "0".repeat(16);
-  childWindow.id = r.substr(0, 8) + '-' + r.substr(8, 4) + '-4000-8' +
-    r.substr(12, 3) + '-' + r.substr(15, 12);
+
+  childWindow.webContents.openDevTools();
+  childWindow.guid = guid();
+  console.log("windowId: " + childWindow.guid);
   childWindow.img = img;
 
   return childWindow;
@@ -84,14 +91,14 @@ ipcMain.on('minimize', function () {
 
 ipcMain.on('new-child-window', function (event, arg) {
   let cw = createChildWindow(arg);
-  console.log('[createChildWindow] id:' + cw.id, arg);
+  console.log('[createChildWindow] id:' + cw.guid, arg);
   childWindows.push(cw);
 })
 
-ipcMain.on('close-child-window', function (event,  id) {
-  console.log('[close-child-window] id:' + id);
+ipcMain.on('close-child-window', function (event,  guid) {
+  console.log('[close-child-window] id:' + guid);
   for (let i = 0; i < childWindows.length; i++) {
-    if (childWindows[i].id === id) {
+    if (childWindows[i].guid === guid) {
       childWindows[i].close();
       childWindows[i] = null;
       childWindows.splice(i, 1);
@@ -99,9 +106,9 @@ ipcMain.on('close-child-window', function (event,  id) {
   }
 })
 
-ipcMain.on('canvas-init', (event) => {
-  console.log('[canvas-init]');
-  mainWindow.webContents.send('child-canvas-init');
+ipcMain.on('canvas-init', (event, ctx) => {
+  console.log('[canvas-init]: ' + ctx.name);
+  mainWindow.webContents.send('child-canvas-init', ctx);
 });
 
 ipcMain.on('set-child-mask', (event, arg) => {
@@ -110,3 +117,4 @@ ipcMain.on('set-child-mask', (event, arg) => {
       childWindows[i].webContents.send('set-canvas-mask', arg);
   }
 });
+

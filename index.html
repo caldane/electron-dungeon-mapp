@@ -76,6 +76,7 @@
     var mouseMode = 'nav';
     let toolBuffer = document.createElement('canvas');
     toolBuffer.name = "tool"
+    let childBufferContexts = [];
 
 
     function resizeCanvas() {
@@ -158,12 +159,14 @@
       });
     }
     function launchPreview() {
-      ipcRenderer.send('new-child-window', img.src);
+      ipcRenderer.send('new-child-window', cvState.mapImage.src);
     }
     function updatePreview() {
-      let img = shapes.maskData("black");
-      ipcRenderer.send('set-child-mask', img);
+      for(let i =0; i < childBufferContexts.length; i++) {
+        shapes.maskData(childBufferContexts[i]);
+      }
     }
+
     function navMode(mode) {
       if (mode != mouseMode) {
         var radios = $("#nav-modes .is-checked");
@@ -182,44 +185,18 @@
       }
     }
 
-    ipcRenderer.on('child-canvas-init', function () {
-      let img = shapes.maskData("black");
-      ipcRenderer.send('set-child-mask', img);
+    ipcRenderer.on('child-canvas-init', function (event, ctx) {
+      childBufferContexts.push(ctx);
     });
 
     resizeCanvas();
     let img = new Image();
-    var cvState = shapes.init(canvas);
-    img.onload = function () {
-      
-      let buffer =  document.createElement('canvas');
-      buffer.width = img.width + (cvState.gutterSize * 2);
-      buffer.height = img.height + (cvState.gutterSize * 2);
-      buffer.name = "buffer";
-      cvState.buffer = buffer;
-      cvState.bufferCtx = buffer.getContext('2d');
-      cvState.bufferCtx.filter = 'blur(14px)';
+    var cvState = shapes.init('main-window', canvas);
+    cvState.tool.buffer = toolBuffer;
+    cvState.tool.ctx = toolBuffer.getContext('2d');
+    cvState.mapImage.src = './assets/img/dungeon.png';
 
-      let mask = document.createElement('canvas');
-      mask.width = img.width + (cvState.gutterSize * 2);
-      mask.height = img.height + (cvState.gutterSize * 2);
-      mask.name = "mask";
-      cvState.mask.canvas = mask;
-      cvState.mask.ctx = mask.getContext('2d');
-      cvState.mask.ctx.fillRect(0, 0, mask.width, mask.height);
-      cvState.mask.ctx.globalCompositeOperation = 'destination-out';
-      cvState.createMaskImage2(cvState.mask.fill, cvState);
-
-      cvState.tool.buffer = toolBuffer;
-      cvState.tool.ctx = toolBuffer.getContext('2d');
-      //cvState.tool.ctx.globalAlpha = .5;
-      cvState.tool.ctx.save();
-
-      cvState.mapImage = img;
-      cvState.invalidate();
-      setTimeout(() => { $("#btn-bar").css('visibility', 'visible') }, 10);
-    }
-    img.src = './assets/img/dungeon.png';
+    setTimeout(() => { $("#btn-bar").css('visibility', 'visible') }, 10);
   </script>
 </body>
 

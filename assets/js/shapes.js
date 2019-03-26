@@ -109,9 +109,9 @@ Shape.prototype.contains = function (mx, my) {
     (this.y <= my) && (this.y + this.h >= my);
 }
 
-function CanvasState(canvas, backgroundFill, maskFill) {
+function CanvasState(id, canvas, backgroundFill, maskFill) {
   // **** First some setup! ****
-
+  this.id = id
   this.canvas = canvas;
   this.width = canvas.width;
   this.height = canvas.height;
@@ -129,7 +129,7 @@ function CanvasState(canvas, backgroundFill, maskFill) {
     fill_color: "rgba(255,0,0,.5)",
     line_width: 120,
     lastDraw: { x: 0, y: 0 },
-    lines: []
+    points: []
   }
 
   this.valid = false; // when set to false, the canvas will redraw everything
@@ -159,11 +159,33 @@ function CanvasState(canvas, backgroundFill, maskFill) {
   this.dragoffx = 0; // See mousedown and mousemove events for explanation
   this.dragoffy = 0;
 
-  // **** Then events! ****
-  this.navEvents();
-
   var myState = this;
 
+  // **** Then events! ****
+  this.navEvents();
+  this.mapImage.onload = function () {
+
+    let buffer =  document.createElement('canvas');
+    buffer.width = myState.mapImage.width + (myState.gutterSize * 2);
+    buffer.height = myState.mapImage.height + (myState.gutterSize * 2);
+    buffer.name = "buffer";
+    myState.buffer = buffer;
+    myState.bufferCtx = buffer.getContext('2d');
+    myState.bufferCtx.name = myState.id + "-buffer-context";
+    myState.bufferCtx.fillStyle = myState.mask.fill;
+    myState.bufferCtx.filter = 'blur(14px)';
+
+    let mask = document.createElement('canvas');
+    mask.width = myState.mapImage.width + (myState.gutterSize * 2);
+    mask.height = myState.mapImage.height + (myState.gutterSize * 2);
+    mask.name = "mask";
+    myState.mask.canvas = mask;
+    myState.mask.ctx = mask.getContext('2d');
+    myState.mask.ctx.fillRect(0, 0, mask.width, mask.height);
+    myState.mask.ctx.globalCompositeOperation = 'destination-out';
+    myState.createMaskImage2(myState, myState.bufferCtx);
+
+}
 
   // **** Options! ****
 
@@ -229,14 +251,6 @@ CanvasState.prototype.draw = function () {
       shapes[i].draw(ctx, this);
     }
 
-    if (this.freeDraw.lines.length > 0) {
-      clearContext(tool.ctx);
-      drawLine(tool.ctx, this.freeDraw);
-      tool.image.src = null;
-      tool.image.src = tool.buffer.toDataURL("image/png");
-      while(tool.image.src === null);
-    }
-
     // draw fog of war mask
     if (mask.fill !== null) {
       if (mask.image.src) {
@@ -246,9 +260,9 @@ CanvasState.prototype.draw = function () {
 
     // draw current tool path
     if (tool.fill !== null) {
-      if(tool.image.src && tool.isDrawing) {
+      if (tool.image.src && tool.isDrawing) {
         ctx.globalCompositeOperation = "overlay";
-        ctx.drawImage(tool.image, 0 - gutter,0-gutter);
+        ctx.drawImage(tool.image, 0 - gutter, 0 - gutter);
       }
     }
 
@@ -354,9 +368,8 @@ CanvasState.prototype.createMaskImage = function (fill, myState) {
   return buffer.toDataURL("image/png");
 }
 
-CanvasState.prototype.createMaskImage2 = function (fillStyle, myState) {
-  let gutter = myState.gutterSize;
-  let ctx = myState.bufferCtx;
+CanvasState.prototype.createMaskImage2 = function (myState, bufferCtx) {
+  let ctx = bufferCtx;
   let img = new Image();
   let bufferWorldSpace = {
     x: 0,
@@ -370,7 +383,6 @@ CanvasState.prototype.createMaskImage2 = function (fillStyle, myState) {
     ctx.clearRect(bufferWorldSpace.x, bufferWorldSpace.y, bufferWorldSpace.w, bufferWorldSpace.h);
     ctx.drawImage(img, 0, 0);
     ctx.globalCompositeOperation = 'source-in';
-    ctx.fillStyle = fillStyle;
     ctx.fillRect(bufferWorldSpace.x, bufferWorldSpace.y, bufferWorldSpace.w, bufferWorldSpace.h);
     myState.mask.image.src = ctx.canvas.toDataURL("image/png");
     myState.invalidate();
@@ -427,28 +439,23 @@ function findxy(res, e, myState) {
     if (e.which == 2) {
       MouseDown(e, myState);
     } else if (e.which == 1) {
+      myState.freeDraw.points = [];
       myState.freeDraw.lastDraw = mouse;
       myState.tool.isDrawing = true;
       myState.tool.ctx.beginPath();
-      myState.freeDraw.lines.push(mouse);
     }
   }
   if (res == 'up' || res == "out") {
     if (e.which == 2) {
       MouseUp(e, myState);
     } else if (e.which == 1) {
-      let points = [];
-      for (var i = 0; i < myState.freeDraw.lines.length; i++) {
-        points.push(myState.screenToWorldSpace(myState.freeDraw.lines[i]));
+      if (myState.freeDraw.type === 'polygon') {
+        drawMaskPolygon(myState.mask.ctx, myState.freeDraw.points, myState.freeDraw.line_width, "#000000ff", "#000000ff");
       }
-      if (myState.freeDraw.type === 'brush') {
-        myState.createMaskImage2(myState.mask.fill, myState);
-        //myState.addMask(new MultipointLine(points, "black", myState.freeDraw.line_width));
-      } else if (myState.freeDraw.type === 'polygon') {
-        myState.addMask(new Polygon(points, "black", myState.freeDraw.line_width));
-      }
+
+      myState.createMaskImage2(myState, myState.bufferCtx);
+
       myState.freeDraw.flag = false;
-      myState.freeDraw.lines = [];
       myState.tool.isDrawing = false;
       myState.tool.ctx.closePath();
       clearContext(myState.tool.ctx);
@@ -460,9 +467,10 @@ function findxy(res, e, myState) {
     }
     if (e.which == 1) {
       let lastDraw = myState.freeDraw.lastDraw;
-      var a = lastDraw.x - mouse.x;
-      var b = lastDraw.y - mouse.y;
-      var c = Math.sqrt(a * a + b * b);
+      let a = lastDraw.x - mouse.x;
+      let b = lastDraw.y - mouse.y;
+      let c = Math.sqrt(a * a + b * b);
+
       if (myState.freeDraw.type === 'brush') {
         if (c < myState.freeDraw.line_width / 2) {
           drawMaskArc(myState.tool.ctx, mouse, myState.freeDraw.line_width / 2, "#333333ff");
@@ -473,10 +481,11 @@ function findxy(res, e, myState) {
           drawMaskLine(myState.mask.ctx, myState.screenToWorldSpace(lastDraw), myState.screenToWorldSpace(mouse), myState.freeDraw.line_width, "#000000ff");
         }
       } else if (myState.freeDraw.type === 'polygon') {
-        if(c > myState.freeDraw.line_width / 10) {
-          myState.freeDraw.lines.push({ x: mouse.x, y: mouse.y });
-          myState.valid = false;
-          console.log(mouse);
+        if (c > myState.freeDraw.line_width / 10) {
+          clearContext(myState.tool.ctx);
+          myState.freeDraw.points.push(myState.screenToWorldSpace({ x: mouse.x + myState.gutterSize, y: mouse.y + myState.gutterSize }));
+          drawMaskPolygon(myState.tool.ctx, myState.freeDraw.points, myState.freeDraw.line_width, "#333333ff", "#666666ff");
+          myState.tool.image.src = myState.tool.buffer.toDataURL("image/png");
         }
       }
 
@@ -491,24 +500,20 @@ function findxy(res, e, myState) {
   }
 }
 
-function drawLine(ctx, freeDraw) {
+function drawMaskPolygon(ctx, points, lineWidth, fillStyle, strokeStyle) {
   let region = new Path2D();
   ctx.lineCap = "round";
-  region.moveTo(freeDraw.lines[0].x, freeDraw.lines[0].y);
-  for (var i = 1; i < freeDraw.lines.length; i++) {
-    region.lineTo(freeDraw.lines[i].x, freeDraw.lines[i].y);
+  region.moveTo(points[0].x, points[0].y);
+  for (var i = 1; i < points.length; i++) {
+    region.lineTo(points[i].x, points[i].y);
   }
 
-  if (freeDraw.type == "polygon") {
-    region.closePath();
-  }
-  ctx.fillStyle = freeDraw.fill_color;
-  ctx.strokeStyle = freeDraw.line_color;
-  ctx.lineWidth = freeDraw.line_width + 2;
+  region.closePath();
+  ctx.fillStyle = fillStyle;
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = lineWidth + 2;
   ctx.stroke(region);
-  if (freeDraw.type == "polygon") {
-    ctx.fill(region);
-  }
+  ctx.fill(region);
 }
 
 function drawMaskArc(ctx, mouse, radius, fillStyle) {
@@ -531,7 +536,7 @@ function drawMaskLine(ctx, point1, point2, line_width, fillStyle) {
 
 function clearContext(ctx) {
   ctx.globalCompositeOperation = "source-over";
-  ctx.fillRect(0,0,ctx.canvas.width, ctx.canvas.height);
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 }
 
@@ -539,8 +544,8 @@ function clearContext(ctx) {
 // You could uncomment this init() reference and place the script reference inside the body tag
 //init();
 
-function init(canvas, backgroundFill, maskFill) {
-  var s = new CanvasState(canvas, backgroundFill || '#656565', maskFill || '#2361c080');
+function init(id, canvas, backgroundFill, maskFill) {
+  var s = new CanvasState(id, canvas, backgroundFill || '#656565', maskFill || '#2361c080');
   this.canvasState = s;
   console.log('fetching canvas');
   s.invalidate();
@@ -644,8 +649,8 @@ exports.refreshCanvas = function () {
   this.canvasState.valid = false;
 }
 
-exports.maskData = function (color) {
-  return this.canvasState.createMaskImage(color, this.canvasState);
+exports.maskData = function (bufferCtx) {
+  this.canvasState.createMaskImage2(this.canvasState, bufferCtx);
 }
 
 exports.setMask = function (img) {
