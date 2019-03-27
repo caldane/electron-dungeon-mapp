@@ -64,11 +64,12 @@
     resizeCanvas();
     var cvState = shapes.init(currentWindow.id, canvas, '#656565', "black");
     console.log("currentWindowImage: "+ currentWindow.img.src);
+
+    cvState.on("buffer-initialized", (ctx) => { 
+      ipcRenderer.send("canvas-init", ctx);
+    });
+    
     cvState.mapImage.src = currentWindow.img.src;
-
-    //while(!cvState.bufferCtx);
-    ipcRenderer.send("canvas-init", cvState.bufferCtx);
-
     
   </script>
 </body>
