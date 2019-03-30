@@ -9,13 +9,14 @@
 
 // Constructor for Shape objects to hold data for all drawn objects.
 // For now they will just be defined as rectangles.
-import EventEmitter, { extend } from 'events';
+const EventEmitter = require('events');
 
 class CanvasState extends EventEmitter {
   constructor(id, canvas, backgroundFill, maskFill) {
     super(); //must call super for "this" to be defined.
     // **** First some setup! ****
     this.id = id;
+    this.valid = false;
     this.canvas = canvas;
     this.width = canvas.width;
     this.height = canvas.height;
@@ -33,8 +34,8 @@ class CanvasState extends EventEmitter {
       lastDraw: { x: 0, y: 0 },
       points: []
     };
-    this.valid = false; // when set to false, the canvas will redraw everything
-    this.shapes = []; // the collection of things to be drawn
+
+
     this.masks = [];
     this.mask = {
       image: new Image(),
@@ -42,25 +43,27 @@ class CanvasState extends EventEmitter {
       ctx: null,
       fill: maskFill
     };
+
     this.tool = {
       buffer: null,
       ctx: null,
       mode: null,
       image: new Image()
     };
+
     this.mouse = null;
     this.lastKnownMouse = null;
     this.backgroundFill = backgroundFill;
-    this.dragging = false; // Keep track of when we are dragging
+    this.dragging = false;
 
     this.selection = null;
-    this.dragoffx = 0; // See mousedown and mousemove events for explanation
+    this.dragoffx = 0;
     this.dragoffy = 0;
     var myState = this;
-    extend(myState);
+
     // **** Then events! ****
     this.navEvents();
-    this.mapImage.onload =  () => {
+    this.mapImage.onload = () => {
       let buffer = document.createElement('canvas');
       buffer.width = myState.mapImage.width + (myState.gutterSize * 2);
       buffer.height = myState.mapImage.height + (myState.gutterSize * 2);
@@ -81,7 +84,7 @@ class CanvasState extends EventEmitter {
       myState.mask.ctx.globalCompositeOperation = 'destination-out';
       myState.createMaskImage2(myState, myState.bufferCtx);
 
-      myState.emit("buffer-initialized", bufferCtx);
+      myState.emit("buffer-initialized", myState.bufferCtx);
     };
     // **** Options! ****
     this.selectionColor = '#CC0000';
@@ -92,13 +95,10 @@ class CanvasState extends EventEmitter {
   clear() {
     this.ctx.clearRect(0, 0, this.width, this.height);
   }
-  // While draw is called as often as the INTERVAL variable demands,
-  // It only ever does something if the canvas gets invalidated by our code
+
   draw() {
-    // if our state is invalid, redraw and validate!
     if (!this.valid) {
       var ctx = this.ctx;
-      var shapes = this.shapes;
       this.clear();
       var zoom = this.ZoomFactor;
       let ws = this.worldSpace;
@@ -147,7 +147,12 @@ class CanvasState extends EventEmitter {
         ctx.strokeStyle = "black";
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(this.mouse.x, this.mouse.y, this.freeDraw.line_width / 2, 0, 2 * Math.PI);
+        ctx.arc(
+          this.mouse.x,
+          this.mouse.y,
+          this.freeDraw.line_width / 2, 0, 2 * Math.PI
+        );
+
         ctx.stroke();
         if (this.freeDraw.type === "polygon") {
           ctx.fillStyle = this.freeDraw.fill_color;
@@ -174,7 +179,11 @@ class CanvasState extends EventEmitter {
       return point;
     }
 
-    var coordinates = { x: (ws.x / zoom * -1) + (point.x / zoom), y: (ws.y / zoom * -1) + (point.y / zoom) };
+    var coordinates = {
+      x: (ws.x / zoom * -1) + (point.x / zoom),
+      y: (ws.y / zoom * -1) + (point.y / zoom)
+    };
+
     return coordinates;
   }
 
@@ -186,7 +195,6 @@ class CanvasState extends EventEmitter {
     this.eventsType = 'navigation';
     this.removeEvents();
     this.canvas.addEventListener('selectstart', this);
-    // Up, down, and move are for dragging
     this.canvas.addEventListener('mousedown', this);
     this.canvas.addEventListener('mousemove', this);
     this.canvas.addEventListener('mouseup', this);
@@ -211,6 +219,25 @@ class CanvasState extends EventEmitter {
     this.canvas.addEventListener("mouseout", this);
   }
 
+  drawMode(drawType) {
+    this.freeDraw.type = drawType;
+    var tempMouse = this.lastKnownMouse;
+    this.freeDrawEvents();
+    this.mouse = tempMouse;
+  }
+
+  brushSizeUp(step) {
+    this.freeDraw.line_width += step;
+    this.valid = false;
+  }
+
+  brushSizeDown(step) {
+    if (this.freeDraw.line_width > step) {
+      this.freeDraw.line_width -= step;
+    }
+    this.valid = false;
+  }
+
   createMaskImage2(myState, bufferCtx) {
     let ctx = bufferCtx;
     let img = new Image();
@@ -233,7 +260,7 @@ class CanvasState extends EventEmitter {
 
     img.src = myState.mask.canvas.toDataURL("image/png");
   }
-  
+
   handleEvent(e) {
     switch (this.eventsType + "-" + e.type) {
       case 'navigation-selectstart': {
@@ -268,7 +295,7 @@ class CanvasState extends EventEmitter {
   }
 }
 
-
+module.exports = CanvasState;
 
 
 
@@ -337,7 +364,7 @@ function findxy(res, e, myState) {
         if (c > myState.freeDraw.line_width / 10) {
           clearContext(myState.tool.ctx);
           myState.freeDraw.points.push(myState.screenToWorldSpace({ x: mouse.x + myState.gutterSize, y: mouse.y + myState.gutterSize }));
-          drawMaskPolygon(myState.tool.ctx, myState.freeDraw.points, myState.freeDraw.line_width, "#333333ff", "#666666ff");
+          drawMaskPolygon(myState.tool.ctx, myState.freeDraw.points, myState.freeDraw.line_width, "#505050ff", "#333333ff");
           myState.tool.image.src = myState.tool.buffer.toDataURL("image/png");
         }
       }
@@ -357,9 +384,23 @@ function drawMaskPolygon(ctx, points, lineWidth, fillStyle, strokeStyle) {
   let region = new Path2D();
   ctx.lineCap = "round";
   region.moveTo(points[0].x, points[0].y);
+  let curveDirection = { x: 0, y: 0};
   for (var i = 1; i < points.length; i++) {
+    var pointWeight = pointWeightOnCurveDirection(points[i], points[0], points[points.length-1]); 
+    curveDirection.x += pointWeight.x;
+    curveDirection.y += pointWeight.y;
     region.lineTo(points[i].x, points[i].y);
   }
+
+  let curve = curveLine(points[points.length-1], points[0], curveDirection);
+
+  region.bezierCurveTo(
+    points[points.length-1].x,
+    points[points.length-1].y, 
+    curve.x,
+    curve.y,
+    points[0].x, 
+    points[0].y);
 
   region.closePath();
   ctx.fillStyle = fillStyle;
@@ -397,39 +438,16 @@ function clearContext(ctx) {
 // You could uncomment this init() reference and place the script reference inside the body tag
 //init();
 
-function init(id, canvas, backgroundFill, maskFill) {
-  var s = new CanvasState(id, canvas, backgroundFill || '#656565', maskFill || '#2361c080');
-  this.canvasState = s;
-  console.log('fetching canvas');
-  s.invalidate();
-  return s;
-}
-
 function MouseDown(e, myState) {
   var mouse = myState.getMouse(e);
   var mx = mouse.x;
   var my = mouse.y;
-  var shapes = myState.shapes;
-  var l = shapes.length;
   let ws = myState.worldSpace;
 
   myState.dragoffx = mx - ws.x;
   myState.dragoffy = my - ws.y;
   myState.dragging = true;
 
-  for (var i = l - 1; i >= 0; i--) {
-    if (shapes[i].contains(mx, my)) {
-      var mySel = shapes[i];
-      // Keep track of where in the object we clicked
-      // so we can move it smoothly (see mousemove)
-
-      myState.dragoffx = mx - mySel.x;
-      myState.dragoffy = my - mySel.y;
-      myState.selection = mySel;
-      myState.valid = false;
-      return;
-    }
-  }
   // havent returned means we have failed to select anything.
   // If there was an object selected, we deselect it
   if (myState.selection) {
@@ -461,60 +479,52 @@ function MouseWheel(e, myState) {
   const factor = e.deltaY < 0 ? 1.2 : .8;
 
   myState.ZoomFactor *= factor;
-  let ws = this.worldSpace;
+  let ws = myState.worldSpace;
   ws.x = ws.x * factor - e.x * (factor - 1);
   ws.y = ws.y * factor - (e.y - myState.canvas.offsetTop) * (factor - 1);
 
   myState.valid = false;
 }
 
-// Now go make something amazing!
-const _init = init;
-export { _init as init };
+function curveLine(pos1, pos2, direction) {
+  let curvePoint = {
+    x: ((pos1.x + pos2.x) / 2) - direction.x / 2,
+    y: ((pos1.y + pos2.y) / 2) - direction.y / 2
+  };
 
-export function drawMode (drawType) {
-  this.canvasState.freeDraw.type = drawType;
-  var tempMouse = this.canvasState.lastKnownMouse;
-  this.canvasState.freeDrawEvents();
-  this.canvasState.mouse = tempMouse;
-}
-export function navigateMode () {
-  this.canvasState.freeDraw.type = 'nav';
-  this.canvasState.navEvents();
+  return curvePoint;
 }
 
-export function currentMode () {
-  return this.canvasState.freeDraw.type;
-}
-
-export function brushSizeUp () {
-  this.canvasState.freeDraw.line_width += 1;
-  this.canvasState.valid = false;
-}
-
-export function brushSizeDown () {
-  if (this.canvasState.freeDraw.line_width > 1) {
-    this.canvasState.freeDraw.line_width -= 1;
+function pointWeightOnCurveDirection(compPos, pos1, pos2) {
+  let compPoint = { x:0, y:0};
+  if(compPos.x > pos1.x && compPos.x > pos2.x) {
+    compPoint.x += 1;
   }
-  this.canvasState.valid = false;
+  if(compPos.x < pos1.x && compPos.x < pos2.x) {
+    compPoint.x -= 1;
+  }
+  if(compPos.y > pos1.y && compPos.y > pos2.y) {
+    compPoint.y += 1;
+  }
+  if(compPos.y < pos1.y && compPos.y < pos2.y) {
+    compPoint.y -= 1;
+  }
+  
+  return compPoint;
 }
 
-export function refreshCanvas () {
-  this.canvasState.valid = false;
-}
+// export function maskData (bufferCtx) {
+//   this.canvasState.createMaskImage2(this.canvasState, bufferCtx);
+// }
 
-export function maskData (bufferCtx) {
-  this.canvasState.createMaskImage2(this.canvasState, bufferCtx);
-}
+// export function setMask (img) {
+//   this.canvasState.mask.image.src = img;
+//   this.canvasState.invalidate();
+// }
 
-export function setMask (img) {
-  this.canvasState.mask.image.src = img;
-  this.canvasState.invalidate();
-}
-
-export function setMapp (img) {
-  this.canvasState.buffer.height = img.height;
-  this.canvasState.buffer.width = img.width;
-  this.canvasState.mapImage = img;
-  this.canvasState.valid = false;
-}
+// export function setMapp (img) {
+//   this.canvasState.buffer.height = img.height;
+//   this.canvasState.buffer.width = img.width;
+//   this.canvasState.mapImage = img;
+//   this.canvasState.valid = false;
+// }
